@@ -27,16 +27,12 @@ enum ArgRomBank {
 #[command(version, about, long_about = None)]
 struct Cli {
     /// Serial port
-    #[arg(short, long)]
+    #[arg(short = 'p', long)]
     port: String,
-
-    /// Verbosity level
-    #[command(flatten)]
-    verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::InfoLevel>,
 
     /// Reset signal type. RTS is recommended, as DTR is toggled on serial port
     /// open, resulting in extra reset
-    #[arg(long, default_value = "rts")]
+    #[arg(short = 'r', long, default_value = "rts")]
     reset_type: ArgResetType,
 
     /// Do not reset chip after running a command
@@ -44,7 +40,7 @@ struct Cli {
     no_final_reset: bool,
 
     /// Invert reset pin
-    #[arg(long, default_value_t = false)]
+    #[arg(short = 'i', long, default_value_t = false)]
     reset_invert: bool,
 
     /// Custom reset duration in milliseconds
@@ -55,49 +51,64 @@ struct Cli {
     #[arg(long, default_value_t = 1666)]
     connect_duration: u64,
 
+    /// Flash page size in bytes. It is usually 32 bytes, but
+    /// can be 64 bytes for big chips. Check datasheet!
+    #[arg(short = 'x', long, default_value_t = 0x20)]
+    page_size: u8,
+
     /// ROM bank to work with
     #[arg(long, default_value = "main")]
     rom_bank: ArgRomBank,
 
-    /// Allow writing or erasing non-main ROM bank. Be careful, this can brick your chip!
-    /// I've accidentally wiped boot parameter area it on SN8F570212, and the chip would
-    /// no longer leave the built-in bootloader until I've restored it back. Fun stuff!
+    /// Allow writing or erasing non-main ROM bank
+    ///
+    /// Be careful, this can brick your chip! I've accidentally wiped boot
+    /// parameter area on SN8F570212, and the chip would no longer leave the
+    /// built-in bootloader until I've restored it back. Fun stuff!
     #[arg(long, default_value_t = false)]
     dangerous_allow_write_non_main_bank: bool,
 
     #[command(subcommand)]
     command: Commands,
+
+    #[command(flatten)]
+    verbose: clap_verbosity_flag::Verbosity<clap_verbosity_flag::InfoLevel>,
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Connect and read Chip ID
+    /// Connect and read chip ID
     ChipId,
+
+    /// Erase flash
+    Erase,
 
     /// Read flash
     Read {
-        /// Read offset in bytes
-        #[arg(long, default_value_t = 0)]
-        offset: u16,
-
         /// Read size in bytes
-        #[arg(long)]
+        #[arg(short = 's', long)]
         size: u16,
 
+        /// Read offset in bytes
+        #[arg(short = 'o', long, default_value_t = 0)]
+        offset: u16,
+
         /// Output file path (raw binary), use "-" for stdout
-        #[arg(long)]
+        #[arg(short = 'f', long = "file")]
         path: Option<String>,
+    },
+
+    /// Verify flash
+    Verify {
+        /// Input file path (raw binary or Intel HEX)
+        #[arg(short = 'f', long = "file")]
+        path: String,
     },
 
     /// Write flash
     Write {
-        /// Flash page size in bytes. It is usually 32 bytes, but
-        /// can be 64 bytes for big chips. Check datasheet!
-        #[arg(long, default_value_t = 0x20)]
-        page_size: u8,
-
         /// Input file path (raw binary or Intel HEX)
-        #[arg(short, long)]
+        #[arg(short = 'f', long = "file")]
         path: String,
 
         /// Do not erase chip before writing
@@ -108,9 +119,6 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         no_verify: bool,
     },
-
-    /// Erase flash
-    Erase,
 }
 
 fn main() {
@@ -146,6 +154,10 @@ fn main() {
         Commands::ChipId => {
             // Already printed it!
         }
+        Commands::Erase => {
+            log::info!("Erasing flash...");
+            flasher.erase_flash();
+        }
         Commands::Read {
             ref path,
             offset,
@@ -174,14 +186,22 @@ fn main() {
                 }
             }
         }
+        Commands::Verify { ref path } => {
+            log::info!("Opening {path}...");
+            let firmware = Firmware::from_file(path, args.page_size.into());
+
+            log::info!("Verifying flash...");
+            let bar = ProgressBar::new(firmware.len() as _);
+            flasher.verify_flash(&firmware, &|x| bar.inc(x));
+            bar.finish();
+        }
         Commands::Write {
             ref path,
-            page_size,
             no_erase,
             no_verify,
         } => {
             log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, page_size.into());
+            let firmware = Firmware::from_file(path, args.page_size.into());
 
             if !no_erase {
                 log::info!("Erasing flash...");
@@ -199,10 +219,6 @@ fn main() {
                 flasher.verify_flash(&firmware, &|x| bar.inc(x));
                 bar.finish();
             }
-        }
-        Commands::Erase => {
-            log::info!("Erasing flash...");
-            flasher.erase_flash();
         }
     };
 

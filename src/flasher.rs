@@ -90,7 +90,9 @@ impl Flasher {
 
     fn cmd_chip_id(&mut self) -> u32 {
         self.transport.write(&[0x55, 0x21]);
-        self.cmd_get_u32()
+        let res = self.cmd_get_u32();
+        self.cmd_unk_2b();
+        res
     }
 
     fn cmd_get_u8(&mut self) -> u8 {
@@ -293,9 +295,7 @@ impl Flasher {
     }
 
     pub fn chip_id(&mut self) -> u32 {
-        let res = self.cmd_chip_id();
-        self.cmd_unk_2b();
-        res
+        self.cmd_chip_id()
     }
 
     pub fn read_flash(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u64)) {

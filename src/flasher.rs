@@ -35,6 +35,8 @@ pub struct Flasher {
     // Inner fields
     transport: Box<dyn Transport>,
     connected: bool,
+    batch_counter: u64,
+    batch_data: Vec<u8>,
 
     #[getset(get_copy, vis = "pub")]
     #[getset(set, vis = "pub")]
@@ -64,8 +66,10 @@ impl Flasher {
         Flasher {
             transport,
             connected: false,
+            batch_counter: 0,
+            batch_data: Vec::new(),
             final_reset: true,
-            rom_bank: RomBank::Boot,
+            rom_bank: RomBank::Main,
             reset_duration_ms: 10,
             connect_duration_us: 1666,
             dangerous_allow_write_non_main_bank: false,
@@ -80,10 +84,37 @@ impl Flasher {
         std::thread::sleep(std::time::Duration::from_micros(micros));
     }
 
+    fn write_batch_begin(&mut self) {
+        self.batch_counter += 1;
+    }
+
+    fn write_batch_commit(&mut self) {
+        self.batch_counter -= 1;
+        if self.batch_counter == 0 {
+            let batch_data = std::mem::take(&mut self.batch_data);
+            self.write(&batch_data);
+        }
+    }
+
+    fn write(&mut self, data: &[u8]) {
+        if self.batch_counter > 0 {
+            self.batch_data.extend(data);
+        } else {
+            self.transport.write(data);
+        }
+    }
+
+    fn read(&mut self, data: &mut [u8]) {
+        if self.batch_counter != 0 {
+            panic!("Can't read during write batch")
+        }
+        self.transport.read(data);
+    }
+
     // Low-level commands =====================================================
 
     fn cmd_connect(&mut self) {
-        self.transport.write(&[
+        self.write(&[
             0x55, 0x08, 0x29, 0x23, 0xBE, 0x84, 0xE1, 0x6C, 0xD6, 0xAE, 0x52, 0x90, 0x49, 0xF1,
             0xF1, 0xBB, 0xE9, 0xEB, 0xB3, 0xA6, 0xDB, 0x3C, 0x87, 0x0C, 0x3E, 0x99, 0x24, 0x5E,
             0x0D, 0x1C, 0x06, 0xB7, 0x47, 0xDE, 0xB3, 0x12, 0x4D, 0xC8, 0x43, 0xBB, 0x8B, 0xA6,
@@ -95,56 +126,56 @@ impl Flasher {
             0x9D, 0x49, 0x2C, 0x80, 0x7E, 0x6B, 0x8F, 0xD3, 0x92,
         ]);
         let mut res = [0; 4];
-        self.transport.read(&mut res);
+        self.read(&mut res);
         assert_eq!(res, [0xFF; 4], "Invalid handshake response")
     }
 
     fn cmd_chip_id(&mut self) -> u32 {
-        self.transport.write(&[0x55, 0x21]);
+        self.write(&[0x55, 0x21]);
         let res = self.cmd_get_u32();
         self.cmd_unk_2b();
         res
     }
 
     fn cmd_get_u8(&mut self) -> u8 {
-        self.transport.write(&[0x55, 0x88]);
+        self.write(&[0x55, 0x88]);
         let mut res = [0];
-        self.transport.read(&mut res);
+        self.read(&mut res);
         res[0]
     }
 
     fn cmd_get_u16(&mut self) -> u16 {
-        self.transport.write(&[0x55, 0x8B]);
+        self.write(&[0x55, 0x8B]);
         let mut res = [0; 2];
-        self.transport.read(&mut res);
+        self.read(&mut res);
         u16::from_le_bytes(res)
     }
 
     fn cmd_get_u32(&mut self) -> u32 {
-        self.transport.write(&[0x55, 0xA0]);
+        self.write(&[0x55, 0xA0]);
         let mut res = [0; 4];
-        self.transport.read(&mut res);
+        self.read(&mut res);
         u32::from_le_bytes(res)
     }
 
     fn cmd_unk_2a(&mut self) {
-        self.transport.write(&[0x55, 0x2A]);
+        self.write(&[0x55, 0x2A]);
     }
 
     fn cmd_unk_2b(&mut self) {
-        self.transport.write(&[0x55, 0x2B]);
+        self.write(&[0x55, 0x2B]);
     }
 
     fn cmd_unk_48(&mut self, arg1: u8) {
-        self.transport.write(&[0x55, 0x48, arg1]);
+        self.write(&[0x55, 0x48, arg1]);
     }
 
     fn cmd_unk_4b(&mut self, arg1: u8, arg2: u8) {
-        self.transport.write(&[0x55, 0x4B, arg1, arg2]);
+        self.write(&[0x55, 0x4B, arg1, arg2]);
     }
 
     fn cmd_unk_58(&mut self, arg1: u8, arg2: u8, arg3: u8) {
-        self.transport.write(&[0x55, 0x58, arg1, arg2, arg3]);
+        self.write(&[0x55, 0x58, arg1, arg2, arg3]);
     }
 
     fn cmd_exec_op(&mut self, opcode: u8, arg1: u8, arg2: u8) {
@@ -277,7 +308,7 @@ impl Flasher {
     }
 
     fn cmd_write_page(&mut self, page: usize, data: &[u8]) {
-        self.transport.write_batch_begin();
+        self.write_batch_begin();
         for (i, byte) in data.iter().enumerate() {
             self.cmd_write_ram(i as u8, *byte);
         }
@@ -285,7 +316,7 @@ impl Flasher {
         self.cmd_write_sfr(Sfr::Peromh, (page / 8) as u8);
         self.cmd_write_sfr(Sfr::Peroml, ((page % 8) as u8) << 5 | 0x0A);
         self.cmd_write_sfr(Sfr::Pecmd, 0x5A);
-        self.transport.write_batch_commit();
+        self.write_batch_commit();
     }
 
     // High-level commands ====================================================

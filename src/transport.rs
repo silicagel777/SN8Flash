@@ -1,7 +1,5 @@
 pub trait Transport {
     fn write(&mut self, data: &[u8]);
-    fn write_batch_begin(&mut self);
-    fn write_batch_commit(&mut self);
     fn read(&mut self, data: &mut [u8]);
     fn set_reset(&mut self, level: bool);
 }
@@ -15,8 +13,6 @@ pub enum ResetType {
 #[derive(gset::Getset)]
 pub struct SerialPortTransport {
     port: Box<dyn serialport::SerialPort>,
-    batch_counter: u64,
-    batch_data: Vec<u8>,
 
     #[getset(get_copy, vis = "pub")]
     #[getset(set, vis = "pub")]
@@ -37,57 +33,31 @@ impl SerialPortTransport {
             port,
             reset_type: ResetType::Rts,
             reset_invert: false,
-            batch_counter: 0,
-            batch_data: Vec::new(),
         }
     }
 }
 
 impl Transport for SerialPortTransport {
     fn write(&mut self, data: &[u8]) {
-        if self.batch_counter > 0 {
-            log::trace!("Appending write batch with {data:02X?}");
-            self.batch_data.extend(data);
-        } else {
-            log::trace!("Writing {data:02X?}");
+        log::trace!("Writing {data:02X?}");
+        self.port
+            .write_all(data)
+            .expect("Failed to write into serial port");
+        self.port.flush().expect("Failed to flush serial port");
+        let mut res = [0];
+        for byte in data {
             self.port
-                .write_all(data)
-                .expect("Failed to write into serial port");
-            self.port.flush().expect("Failed to flush serial port");
-            let mut res = [0];
-            for byte in data {
-                self.port
-                    .read_exact(&mut res)
-                    .expect("Failed to read written data from serial port, check RX+TX connection");
-                assert_eq!(
-                    *byte, res[0],
-                    "Write/read data mismatch, check RX+TX connection"
-                );
-            }
-            log::trace!("Written {} bytes", data.len());
+                .read_exact(&mut res)
+                .expect("Failed to read written data from serial port, check RX+TX connection");
+            assert_eq!(
+                *byte, res[0],
+                "Write/read data mismatch, check RX+TX connection"
+            );
         }
-    }
-
-    fn write_batch_begin(&mut self) {
-        log::trace!("Write batch begin");
-        self.batch_counter += 1;
-        log::trace!("Write batch counter {}", self.batch_counter);
-    }
-
-    fn write_batch_commit(&mut self) {
-        log::trace!("Write batch commit");
-        self.batch_counter -= 1;
-        if self.batch_counter == 0 {
-            let batch_data = std::mem::take(&mut self.batch_data);
-            self.write(&batch_data);
-        }
-        log::trace!("Write batch counter {}", self.batch_counter);
+        log::trace!("Written {} bytes", data.len());
     }
 
     fn read(&mut self, data: &mut [u8]) {
-        if self.batch_counter != 0 {
-            panic!("Can't read during write batch")
-        }
         log::trace!("Reading {} bytes", data.len());
         for i in 0..data.len() {
             self.port

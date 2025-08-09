@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
+use sonixflash::firmware::load_firmware;
 use sonixflash::flasher::{Flasher, RomBank};
 use sonixflash::transport::{ResetType, SerialPortTransport};
 use std::io::Write;
@@ -83,7 +84,7 @@ enum Commands {
         #[arg(long)]
         size: u16,
 
-        /// Output file path, use "-" for stdout
+        /// Output file path (raw binary), use "-" for stdout
         #[arg(long)]
         path: Option<String>,
     },
@@ -95,7 +96,7 @@ enum Commands {
         #[arg(long, default_value_t = 0x20)]
         page_size: u8,
 
-        /// Input file path
+        /// Input file path (raw binary or Intel HEX)
         #[arg(short, long)]
         path: String,
 
@@ -180,7 +181,7 @@ fn main() {
             no_verify,
         } => {
             log::info!("Opening {path}...");
-            let mut data_write = std::fs::read(path).unwrap();
+            let mut data_write = load_firmware(path);
             data_write.resize(data_write.len().next_multiple_of(page_size as usize), 0xFF);
 
             if !no_erase {

@@ -48,11 +48,9 @@ impl Transport for SerialPortTransport {
             self.batch_data.extend(data);
         } else {
             log::trace!("Writing {data:02X?}");
-            let written = self
-                .port
-                .write(data)
+            self.port
+                .write_all(data)
                 .expect("Failed to write into serial port");
-            assert_eq!(written, data.len(), "Some bytes were not written");
             self.port.flush().expect("Failed to flush serial port");
             let mut res = [0];
             for byte in data {

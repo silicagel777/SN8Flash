@@ -7,6 +7,7 @@ edition = "2024"
 clap = { version = "4.5.41", features = ["derive"] }
 clap-verbosity-flag = "3.0.3"
 getset = "0.1.6"
+ihex = "3.0.0"
 indicatif = "0.18.0"
 log = "0.4.27"
 nu-pretty-hex = "0.106.1"

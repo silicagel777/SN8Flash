@@ -50,9 +50,6 @@ pub struct Flasher {
 
     #[getset(get = "pub with_prefix", set = "pub")]
     dangerous_allow_write_non_main_bank: bool,
-
-    #[getset(get = "pub with_prefix", set = "pub")]
-    page_size: usize,
 }
 
 impl Flasher {
@@ -65,7 +62,6 @@ impl Flasher {
             reset_duration_ms: 10,
             connect_duration_us: 1666,
             dangerous_allow_write_non_main_bank: false,
-            page_size: 0x20,
         }
     }
 
@@ -273,11 +269,6 @@ impl Flasher {
     }
 
     fn cmd_write_page(&mut self, page: usize, data: &[u8]) {
-        assert_eq!(
-            data.len(),
-            self.page_size,
-            "Data length is not equal to page size"
-        );
         self.transport.write_batch_begin();
         for (i, byte) in data.iter().enumerate() {
             self.cmd_write_ram(i as u8, *byte);
@@ -362,9 +353,12 @@ impl Flasher {
         self.sleep_ms(15);
     }
 
-    pub fn write_flash(&mut self, data: &[u8], progress_fn: &dyn Fn(u8)) {
+    pub fn write_flash(&mut self, data: &[u8], page_size: u8, progress_fn: &dyn Fn(u8)) {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
             panic!("Writing to a non-main ROM bank is not allowed");
+        }
+        if data.len() % (page_size as usize) != 0 {
+            panic!("Data length is not divisble by page size");
         }
 
         self.cmd_pre1();
@@ -376,8 +370,8 @@ impl Flasher {
         let old_rom_bank = self.cmd_get_rom_bank();
         self.cmd_set_rom_bank(self.rom_bank as u8);
 
-        let page_count = data.len() / self.page_size;
-        for (page, data) in data.chunks(self.page_size).enumerate() {
+        let page_count = data.len() / (page_size as usize);
+        for (page, data) in data.chunks(page_size as usize).enumerate() {
             self.cmd_write_page(page, data);
             self.sleep_ms(5);
 

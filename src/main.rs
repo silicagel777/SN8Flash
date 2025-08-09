@@ -2,10 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
 use sonixflash::flasher::{Flasher, RomBank};
 use sonixflash::transport::{ResetType, SerialPortTransport};
-use std::{
-    fs::File,
-    io::{Read, Write},
-};
+use std::io::Write;
 
 #[derive(ValueEnum, Clone, Debug)]
 enum CommandResetType {
@@ -51,10 +48,6 @@ struct Cli {
     #[arg(long, default_value_t = 1666)]
     connect_duration: u64,
 
-    /// Flash page size for writing (check datasheet)
-    #[arg(long, default_value_t = 0x20)]
-    page_size: usize,
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -63,18 +56,36 @@ struct Cli {
 enum Commands {
     /// Connect and read Chip ID
     ChipId,
+
     /// Read flash
     Read {
-        /// Output file path
-        #[arg(short, long)]
-        path: String,
+        /// Read offset in bytes
+        #[arg(long, default_value_t = 0)]
+        offset: u16,
+
+        /// Read size in bytes
+        #[arg(long)]
+        size: u16,
+
+        /// Output file path, use "-" for stdout
+        #[arg(long)]
+        path: Option<String>,
     },
+
     /// Write flash
     Write {
+        /// Write page size in bytes. It is usually 32 bytes, but
+        /// can be 64 bytes for big chips. Check datasheet!
+        #[arg(long, default_value_t = 0x20)]
+        page_size: u8,
+
         /// Input file path
         #[arg(short, long)]
         path: String,
     },
+    /// Erase flash
+    Erase,
+
     /// Reset chip
     Reset,
 }
@@ -85,7 +96,7 @@ fn main() {
     simplelog::TermLogger::init(
         args.verbose.log_level_filter(),
         simplelog::Config::default(),
-        simplelog::TerminalMode::Mixed,
+        simplelog::TerminalMode::Stderr,
         simplelog::ColorChoice::Auto,
     )
     .expect("Failed to initialize logger");
@@ -102,7 +113,6 @@ fn main() {
     let mut flasher = Flasher::new(transport);
     flasher.set_reset_duration_ms(args.reset_duration);
     flasher.set_connect_duration_us(args.connect_duration);
-    flasher.set_page_size(args.page_size);
     flasher.set_rom_bank(RomBank::Main);
 
     match args.command {
@@ -114,30 +124,48 @@ fn main() {
             log::info!("Resetting chip...");
             flasher.reset();
         }
-        Some(Commands::Read { path }) => {
+        Some(Commands::Read {
+            ref path,
+            offset,
+            size,
+        }) => {
             log::info!("Connecting...");
             let chip_id = flasher.connect();
             log::info!("Chip ID is {chip_id:#X}");
 
             log::info!("Reading flash...");
-            let mut data_read = [0; 4096];
+            let mut data_read = vec![0; size as usize];
             let bar = ProgressBar::new(100);
-            flasher.read_flash(0, &mut data_read, &|x| bar.set_position(x.into()));
+            flasher.read_flash(offset, &mut data_read, &|x| bar.set_position(x.into()));
             bar.finish();
 
-            log::info!("Saving to {path}...");
-            let mut file = File::create(path).unwrap();
-            file.write_all(&data_read).unwrap();
+            match path {
+                None => {
+                    let cfg = nu_pretty_hex::HexConfig {
+                        address_offset: offset as usize,
+                        ..nu_pretty_hex::HexConfig::default()
+                    };
+                    println!("{}", nu_pretty_hex::config_hex(&data_read, cfg));
+                }
+                Some(path) if path == "-" => {
+                    std::io::stdout().write_all(&data_read).unwrap();
+                }
+                Some(path) => {
+                    log::info!("Saving to {path}...");
+                    std::fs::write(path, &data_read).unwrap();
+                }
+            }
 
             log::info!("Resetting chip...");
             flasher.reset();
         }
-        Some(Commands::Write { path }) => {
+        Some(Commands::Write {
+            ref path,
+            page_size,
+        }) => {
             log::info!("Opening {path}...");
-            let mut file = File::open(path).unwrap();
-            let file_size = file.metadata().unwrap().len();
-            let mut data_write = vec![0; file_size.try_into().unwrap()];
-            file.read_exact(&mut data_write).unwrap();
+            let mut data_write = std::fs::read(path).unwrap();
+            data_write.resize(data_write.len().next_multiple_of(page_size as usize), 0);
 
             log::info!("Connecting...");
             let chip_id = flasher.connect();
@@ -148,7 +176,8 @@ fn main() {
 
             log::info!("Writing flash...");
             let bar = ProgressBar::new(100);
-            flasher.write_flash(&data_write, &|x| bar.set_position(x.into()));
+            flasher.write_flash(&data_write, page_size, &|x| bar.set_position(x.into()));
+            bar.finish();
 
             log::info!("Verifying write...");
             let mut data_verify = vec![0; data_write.len()];
@@ -156,9 +185,25 @@ fn main() {
             flasher.read_flash(0, &mut data_verify, &|x| bar.set_position(x.into()));
             bar.finish();
 
-            if data_write != data_verify {
-                log::error!("Verify error!");
+            let verify_errors: Vec<_> = std::iter::zip(data_write, data_verify)
+                .enumerate()
+                .filter(|(_, (x, y))| x != y)
+                .map(|(i, _)| i)
+                .collect();
+            if !verify_errors.is_empty() {
+                log::error!("Verify error! Mismatched offsets are: {verify_errors:08X?}");
             }
+
+            log::info!("Resetting chip...");
+            flasher.reset();
+        }
+        Some(Commands::Erase) => {
+            log::info!("Connecting...");
+            let chip_id = flasher.connect();
+            log::info!("Chip ID is {chip_id:#X}");
+
+            log::info!("Erasing flash...");
+            flasher.erase_flash();
 
             log::info!("Resetting chip...");
             flasher.reset();

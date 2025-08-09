@@ -58,7 +58,7 @@ impl Firmware {
             data: raw,
         }];
         let sections = Self::align_and_merge_sections(sections, page_size);
-        Ok(Firmware {
+        Ok(Self {
             len: Self::sections_len(&sections),
             page_size,
             sections,
@@ -92,7 +92,7 @@ impl Firmware {
         }
 
         let sections = Self::align_and_merge_sections(sections, page_size);
-        Ok(Firmware {
+        Ok(Self {
             len: Self::sections_len(&sections),
             page_size,
             sections,

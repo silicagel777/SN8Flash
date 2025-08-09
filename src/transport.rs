@@ -6,7 +6,7 @@ pub trait Transport {
     fn set_reset(&mut self, level: bool) -> Result<()>;
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ResetType {
     Rts,
     Dtr,
@@ -35,13 +35,13 @@ impl SerialPortTransport {
         if log::log_enabled!(log::Level::Debug) {
             log::debug!(
                 "Opened serial port {} with baud rate {} and timeout {:?}",
-                port.name().unwrap_or("<unknown>".to_string()),
+                port.name().unwrap_or_else(|| "<unknown>".to_string()),
                 port.baud_rate().unwrap_or_default(),
                 port.timeout(),
             );
         }
 
-        Ok(SerialPortTransport {
+        Ok(Self {
             port,
             reset_type: ResetType::Rts,
             reset_invert: false,

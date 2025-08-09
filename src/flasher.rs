@@ -28,7 +28,7 @@ enum Sfr {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RomBank {
     Main = 0,
     Boot = 1,
@@ -67,7 +67,7 @@ impl Flasher {
     // Common stuff ===========================================================
 
     pub fn new(transport: Box<dyn Transport>) -> Self {
-        Flasher {
+        Self {
             transport,
             connected: false,
             batch_counter: 0,

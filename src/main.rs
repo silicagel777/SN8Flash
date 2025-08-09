@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
 use sonixflash::firmware::Firmware;
@@ -129,7 +130,7 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     simplelog::TermLogger::init(
@@ -138,7 +139,7 @@ fn main() {
         simplelog::TerminalMode::Stderr,
         simplelog::ColorChoice::Auto,
     )
-    .expect("Failed to initialize logger");
+    .context("Failed to initialize logger")?;
 
     let transport = {
         log::info!("Opening port {}...", args.port);
@@ -149,6 +150,7 @@ fn main() {
     };
 
     let mut flasher = Flasher::new(transport);
+    flasher.set_final_reset(!args.no_final_reset);
     flasher.set_reset_duration_ms(args.reset_duration);
     flasher.set_connect_duration_us(args.connect_duration);
     flasher.set_rom_bank(args.rom_bank.into());
@@ -186,11 +188,13 @@ fn main() {
                     println!("{}", nu_pretty_hex::config_hex(&data_read, cfg));
                 }
                 Some(path) if path == "-" => {
-                    std::io::stdout().write_all(&data_read).unwrap();
+                    std::io::stdout()
+                        .write_all(&data_read)
+                        .context("Failed to write to standard output")?;
                 }
                 Some(path) => {
                     log::info!("Saving to {path}...");
-                    std::fs::write(path, &data_read).unwrap();
+                    std::fs::write(path, &data_read).context(format!("Failed to save {path}"))?;
                 }
             }
         }
@@ -231,10 +235,6 @@ fn main() {
         }
     };
 
-    if !args.no_final_reset {
-        log::info!("Resetting chip...");
-        flasher.reset();
-    }
-
     log::info!("Done!");
+    Ok(())
 }

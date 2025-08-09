@@ -34,6 +34,11 @@ pub enum RomBank {
 pub struct Flasher {
     // Inner fields
     transport: Box<dyn Transport>,
+    connected: bool,
+
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
+    final_reset: bool,
 
     #[getset(get_copy, vis = "pub")]
     #[getset(set, vis = "pub")]
@@ -58,6 +63,8 @@ impl Flasher {
     pub fn new(transport: Box<dyn Transport>) -> Self {
         Flasher {
             transport,
+            connected: false,
+            final_reset: true,
             rom_bank: RomBank::Boot,
             reset_duration_ms: 10,
             connect_duration_us: 1666,
@@ -285,6 +292,7 @@ impl Flasher {
 
     pub fn reset(&mut self) {
         self.transport.set_reset(true);
+        self.connected = false;
         self.sleep_ms(self.reset_duration_ms);
         self.transport.set_reset(false);
     }
@@ -293,6 +301,7 @@ impl Flasher {
         self.reset();
         self.sleep_us(self.connect_duration_us);
         self.cmd_connect();
+        self.connected = true;
         self.chip_id()
     }
 
@@ -420,5 +429,13 @@ impl Flasher {
 
         self.cmd_post2();
         self.sleep_ms(15);
+    }
+}
+
+impl Drop for Flasher {
+    fn drop(&mut self) {
+        if self.final_reset && self.connected {
+            self.reset();
+        }
     }
 }

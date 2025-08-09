@@ -32,7 +32,7 @@ And here is the connection circuit:
 
 ## Installation
 
-Grab a binary from the [Releases](releases/) section and you are ready to go! You may also want to add it to your `PATH` environment variable.
+Grab a binary from the [Releases](https://github.com/silicagel777/SonixFlash/releases) section and you are ready to go! You may also want to add it to your `PATH` environment variable.
 
 Alternatively, you can build SonixFlash from source. Install a recent [Rust toolchain](https://www.rust-lang.org/tools/install), then run `cargo build --release`.
 

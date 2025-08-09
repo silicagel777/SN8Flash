@@ -278,6 +278,7 @@ impl Flasher {
             self.page_size,
             "Data length is not equal to page size"
         );
+        self.transport.write_batch_begin();
         for (i, byte) in data.iter().enumerate() {
             self.cmd_write_ram(i as u8, *byte);
         }
@@ -285,6 +286,7 @@ impl Flasher {
         self.cmd_write_sfr(Sfr::Peromh, (page / 8) as u8);
         self.cmd_write_sfr(Sfr::Peroml, ((page % 8) as u8) << 5 | 0x0A);
         self.cmd_write_sfr(Sfr::Pecmd, 0x5A);
+        self.transport.write_batch_commit();
     }
 
     // High-level commands ====================================================

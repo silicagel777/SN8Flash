@@ -1,6 +1,7 @@
 use clap::{Parser, ValueEnum};
 use indicatif::ProgressBar;
-use sonixflash::flasher::{Flasher, ResetType, RomBank};
+use sonixflash::flasher::{Flasher, RomBank};
+use sonixflash::transport::{ResetType, SerialPortTransport};
 use std::{
     fs::File,
     io::{Read, Write},
@@ -51,22 +52,27 @@ fn main() {
     let args = CommandArgs::parse();
     let port = &args.port;
 
-    println!("Opening port {port}...");
-    let mut sf = Flasher::new(port);
-    sf.set_reset_type(args.reset_type.into());
-    sf.set_reset_invert(args.reset_invert);
-    sf.set_reset_duration_ms(args.reset_duration);
-    sf.set_connect_duration_us(args.connect_duration);
-    sf.set_rom_bank(RomBank::Main);
+    let transport = {
+        println!("Opening port {port}...");
+        let mut serial = SerialPortTransport::new(port);
+        serial.set_reset_type(args.reset_type.into());
+        serial.set_reset_invert(args.reset_invert);
+        Box::new(serial)
+    };
+
+    let mut flasher = Flasher::new(transport);
+    flasher.set_reset_duration_ms(args.reset_duration);
+    flasher.set_connect_duration_us(args.connect_duration);
+    flasher.set_rom_bank(RomBank::Main);
 
     println!("Connecting...");
-    let chip_id = sf.connect();
+    let chip_id = flasher.connect();
     println!("Chip ID is {chip_id:#X}");
 
     println!("Reading flash...");
     let mut data_read = [0; 4096];
     let bar = ProgressBar::new(100);
-    sf.read_flash(0, &mut data_read, &|x| bar.set_position(x.into()));
+    flasher.read_flash(0, &mut data_read, &|x| bar.set_position(x.into()));
     bar.finish();
     let file_name = "dump_read.bin";
     println!("Saving to {file_name}...");
@@ -74,7 +80,7 @@ fn main() {
     file.write_all(&data_read).unwrap();
 
     println!("Erasing flash...");
-    sf.erase_flash();
+    flasher.erase_flash();
 
     println!("Writing flash...");
     let mut data_write = [0; 4096];
@@ -82,12 +88,12 @@ fn main() {
     let mut file = File::open(file_name).unwrap();
     file.read_exact(&mut data_write).unwrap();
     let bar = ProgressBar::new(100);
-    sf.write_flash(&data_write, &|x| bar.set_position(x.into()));
+    flasher.write_flash(&data_write, &|x| bar.set_position(x.into()));
 
     println!("Verifying write...");
     let mut data_verify = [0; 4096];
     let bar = ProgressBar::new(100);
-    sf.read_flash(0, &mut data_verify, &|x| bar.set_position(x.into()));
+    flasher.read_flash(0, &mut data_verify, &|x| bar.set_position(x.into()));
     bar.finish();
     let file_name = "dump_verify.bin";
     println!("Saving to {file_name}...");
@@ -95,7 +101,7 @@ fn main() {
     file.write_all(&data_verify).unwrap();
 
     println!("Resetting chip...");
-    sf.reset();
+    flasher.reset();
 
     assert_eq!(data_write, data_verify);
 

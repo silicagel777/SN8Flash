@@ -1,3 +1,5 @@
+use crate::transport::Transport;
+
 const PAGE_SIZE: u8 = 32;
 
 #[repr(u8)]
@@ -34,23 +36,10 @@ pub enum RomBank {
     Boot = 1,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum ResetType {
-    Rts,
-    Dtr,
-}
-
 #[derive(getset::Getters, getset::Setters)]
 pub struct Flasher {
     // Inner fields
-    port: Box<dyn serialport::SerialPort>,
-
-    // Params
-    #[getset(get = "pub with_prefix", set = "pub")]
-    reset_type: ResetType,
-
-    #[getset(get = "pub with_prefix", set = "pub")]
-    reset_invert: bool,
+    transport: Box<dyn Transport>,
 
     #[getset(get = "pub with_prefix", set = "pub")]
     reset_duration_ms: u64,
@@ -68,16 +57,10 @@ pub struct Flasher {
 impl Flasher {
     // Common stuff ===========================================================
 
-    pub fn new(port: &str) -> Self {
-        let port = serialport::new(port, 750_000)
-            .timeout(std::time::Duration::from_millis(50))
-            .open()
-            .expect("Failed to open serial port");
+    pub fn new(transport: Box<dyn Transport>) -> Self {
         Flasher {
-            port,
+            transport,
             rom_bank: RomBank::Boot,
-            reset_type: ResetType::Rts,
-            reset_invert: false,
             reset_duration_ms: 10,
             connect_duration_us: 1666,
             dangerous_allow_write_non_main_bank: false,
@@ -92,53 +75,10 @@ impl Flasher {
         std::thread::sleep(std::time::Duration::from_micros(micros));
     }
 
-    fn write(&mut self, data: &[u8]) {
-        let written = self
-            .port
-            .write(data)
-            .expect("Failed to write into serial port");
-        assert_eq!(written, data.len(), "Some bytes were not written");
-        self.port.flush().expect("Failed to flush serial port");
-        let mut res = [0];
-        for byte in data {
-            self.port
-                .read_exact(&mut res)
-                .expect("Failed to read written data from serial port, check RX+TX connection");
-            assert_eq!(
-                *byte, res[0],
-                "Write/read data mismatch, check RX+TX connection"
-            );
-        }
-    }
-
-    fn read(&mut self, data: &mut [u8]) {
-        for i in 0..data.len() {
-            self.port
-                .read_exact(&mut data[i..i + 1])
-                .expect("Failed to read from serial port");
-        }
-    }
-
-    fn set_reset(&mut self, mut level: bool) {
-        if self.reset_invert {
-            level = !level;
-        }
-        match self.reset_type {
-            ResetType::Rts => self
-                .port
-                .write_request_to_send(level)
-                .expect("Failed to set RTS pin"),
-            ResetType::Dtr => self
-                .port
-                .write_data_terminal_ready(level)
-                .expect("Failed to set DTR pin"),
-        }
-    }
-
     // Low-level commands =====================================================
 
     fn cmd_connect(&mut self) {
-        self.write(&[
+        self.transport.write(&[
             0x55, 0x08, 0x29, 0x23, 0xBE, 0x84, 0xE1, 0x6C, 0xD6, 0xAE, 0x52, 0x90, 0x49, 0xF1,
             0xF1, 0xBB, 0xE9, 0xEB, 0xB3, 0xA6, 0xDB, 0x3C, 0x87, 0x0C, 0x3E, 0x99, 0x24, 0x5E,
             0x0D, 0x1C, 0x06, 0xB7, 0x47, 0xDE, 0xB3, 0x12, 0x4D, 0xC8, 0x43, 0xBB, 0x8B, 0xA6,
@@ -150,48 +90,48 @@ impl Flasher {
             0x9D, 0x49, 0x2C, 0x80, 0x7E, 0x6B, 0x8F, 0xD3, 0x92,
         ]);
         let mut res = [0; 4];
-        self.read(&mut res);
+        self.transport.read(&mut res);
         assert_eq!(res, [0xFF; 4], "Invalid handshake response")
     }
 
     fn cmd_chip_id(&mut self) -> u32 {
-        self.write(&[0x55, 0x21, 0x55, 0xA0]);
+        self.transport.write(&[0x55, 0x21, 0x55, 0xA0]);
         let mut res = [0; 4];
-        self.read(&mut res);
+        self.transport.read(&mut res);
         u32::from_le_bytes(res)
     }
 
     fn cmd_get_byte(&mut self) -> u8 {
-        self.write(&[0x55, 0x88]);
+        self.transport.write(&[0x55, 0x88]);
         let mut res = [0];
-        self.read(&mut res);
+        self.transport.read(&mut res);
         res[0]
     }
 
     fn cmd_unk_2a(&mut self) {
-        self.write(&[0x55, 0x2A]);
+        self.transport.write(&[0x55, 0x2A]);
     }
 
     fn cmd_unk_2b(&mut self) {
-        self.write(&[0x55, 0x2B]);
+        self.transport.write(&[0x55, 0x2B]);
     }
 
     fn cmd_unk_48(&mut self, arg1: u8) {
-        self.write(&[0x55, 0x48, arg1]);
+        self.transport.write(&[0x55, 0x48, arg1]);
     }
 
     fn cmd_unk_4b(&mut self, arg1: u8, arg2: u8) {
-        self.write(&[0x55, 0x4B, arg1, arg2]);
+        self.transport.write(&[0x55, 0x4B, arg1, arg2]);
     }
 
     fn cmd_unk_58(&mut self, arg1: u8, arg2: u8, arg3: u8) {
-        self.write(&[0x55, 0x58, arg1, arg2, arg3]);
+        self.transport.write(&[0x55, 0x58, arg1, arg2, arg3]);
     }
 
     fn cmd_unk_8b(&mut self) -> [u8; 2] {
-        self.write(&[0x55, 0x8B]);
+        self.transport.write(&[0x55, 0x8B]);
         let mut res = [0; 2];
-        self.read(&mut res);
+        self.transport.read(&mut res);
         res
     }
 
@@ -348,9 +288,9 @@ impl Flasher {
     // High-level commands ====================================================
 
     pub fn reset(&mut self) {
-        self.set_reset(true);
+        self.transport.set_reset(true);
         self.sleep_ms(self.reset_duration_ms);
-        self.set_reset(false);
+        self.transport.set_reset(false);
     }
 
     pub fn connect(&mut self) -> u32 {

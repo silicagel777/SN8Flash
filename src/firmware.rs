@@ -88,7 +88,7 @@ impl Firmware {
                 Ok(ihex::Record::StartLinearAddress(_)) => {}
                 Ok(ihex::Record::EndOfFile) => {}
                 Err(err) => return Err(Error::IHexParseError(err, i + 1)),
-            };
+            }
         }
 
         let sections = Self::align_and_merge_sections(sections, page_size);

@@ -515,7 +515,7 @@ impl Drop for Flasher {
         if self.final_reset && self.connected {
             log::debug!("Running final reset");
             if let Err(err) = self.reset() {
-                log::debug!("Error running final reset: {:?}", err);
+                log::debug!("Error running final reset: {err:?}");
             }
         }
     }

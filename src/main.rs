@@ -4,7 +4,7 @@ use indicatif::ProgressBar;
 use sonixflash::firmware::Firmware;
 use sonixflash::flasher::{Flasher, RomBank};
 use sonixflash::transport::{ResetType, SerialPortTransport};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::process::ExitCode;
 use structural_convert::StructuralConvert;
 
@@ -94,15 +94,16 @@ enum Commands {
         #[arg(short = 'o', long, default_value_t = 0)]
         offset: u16,
 
-        /// Output file path (raw binary), use "-" for stdout dump or omit
-        /// for pretty-print
+        /// Output file path (raw binary),
+        /// use "-" for stdout dump or omit for pretty-print
         #[arg(short = 'f', long = "file")]
         path: Option<String>,
     },
 
     /// Verify flash
     Verify {
-        /// Input file path (raw binary or Intel HEX)
+        /// Input file path (raw binary or Intel HEX),
+        /// use "-" for raw binary from stdout
         #[arg(short = 'f', long = "file")]
         path: String,
 
@@ -113,7 +114,8 @@ enum Commands {
 
     /// Write flash
     Write {
-        /// Input file path (raw binary or Intel HEX)
+        /// Input file path (raw binary or Intel HEX),
+        /// use "-" for raw binary from stdout
         #[arg(short = 'f', long = "file")]
         path: String,
 
@@ -131,7 +133,43 @@ enum Commands {
     },
 }
 
-fn run(args: Cli) -> anyhow::Result<()> {
+fn load_firmware(path: &str, page_size: u8, offset: u16) -> anyhow::Result<Firmware> {
+    let firmware = if path == "-" {
+        log::info!("Reading raw binary from stdin...");
+        let mut raw = Vec::new();
+        std::io::stdin().read_to_end(&mut raw)?;
+        Firmware::from_raw_bytes(raw, page_size.into(), offset.into())?
+    } else {
+        log::info!("Opening {path}...");
+        Firmware::from_file(path, page_size.into(), offset.into())?
+    };
+    Ok(firmware)
+}
+
+fn dump_firmware(path: Option<&str>, data: &[u8], offset: u16) -> anyhow::Result<()> {
+    match path {
+        None => {
+            let cfg = nu_pretty_hex::HexConfig {
+                address_offset: offset as usize,
+                ..nu_pretty_hex::HexConfig::default()
+            };
+            println!("{}", nu_pretty_hex::config_hex(&data, cfg));
+        }
+        Some("-") => {
+            log::info!("Dumping to stdout...");
+            std::io::stdout()
+                .write_all(data)
+                .context("Failed to write to standard output")?;
+        }
+        Some(path) => {
+            log::info!("Saving to {path}...");
+            std::fs::write(path, data).context(format!("Failed to save {path}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn run(args: &Cli) -> anyhow::Result<()> {
     let transport = {
         log::info!("Opening port {}...", args.port);
         let mut serial = SerialPortTransport::new(&args.port)?;
@@ -170,29 +208,10 @@ fn run(args: Cli) -> anyhow::Result<()> {
             flasher.read_flash(offset, &mut data_read, &|x| bar.inc(x))?;
             bar.finish();
 
-            match path {
-                None => {
-                    let cfg = nu_pretty_hex::HexConfig {
-                        address_offset: offset as usize,
-                        ..nu_pretty_hex::HexConfig::default()
-                    };
-                    println!("{}", nu_pretty_hex::config_hex(&data_read, cfg));
-                }
-                Some(path) if path == "-" => {
-                    log::info!("Dumping to stdout...");
-                    std::io::stdout()
-                        .write_all(&data_read)
-                        .context("Failed to write to standard output")?;
-                }
-                Some(path) => {
-                    log::info!("Saving to {path}...");
-                    std::fs::write(path, &data_read).context(format!("Failed to save {path}"))?;
-                }
-            }
+            dump_firmware(path.as_deref(), &data_read, offset)?;
         }
         Commands::Verify { ref path, offset } => {
-            log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into())?;
+            let firmware = load_firmware(path, args.page_size, offset)?;
 
             log::info!("Verifying flash...");
             let bar = ProgressBar::new(firmware.len() as _);
@@ -205,8 +224,7 @@ fn run(args: Cli) -> anyhow::Result<()> {
             no_erase,
             no_verify,
         } => {
-            log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into())?;
+            let firmware = load_firmware(path, args.page_size, offset)?;
 
             if !no_erase {
                 log::info!("Erasing flash...");
@@ -225,7 +243,7 @@ fn run(args: Cli) -> anyhow::Result<()> {
                 bar.finish();
             }
         }
-    };
+    }
 
     log::info!("Done!");
     Ok(())
@@ -242,9 +260,9 @@ fn main() -> ExitCode {
     )
     .expect("Failed to initialize logger");
 
-    if let Err(err) = run(args) {
+    if let Err(err) = run(&args) {
         if log::log_enabled!(log::Level::Debug) {
-            log::error!("{err:?}")
+            log::error!("{err:?}");
         } else {
             log::error!("{err:#}");
         }

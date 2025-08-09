@@ -70,7 +70,7 @@ impl Transport for SerialPortTransport {
     fn read(&mut self, data: &mut [u8]) -> Result<()> {
         log::trace!("Reading {} bytes", data.len());
         for i in 0..data.len() {
-            self.port.read_exact(&mut data[i..i + 1])?
+            self.port.read_exact(&mut data[i..=i])?;
         }
         log::trace!("Read {data:02X?}");
         Ok(())

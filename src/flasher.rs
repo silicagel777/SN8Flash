@@ -218,7 +218,7 @@ impl Flasher {
         self.cmd_read_ram(sfr as u8)
     }
 
-    fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u8)) {
+    fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u64)) {
         // Context save
         let old_8e_val = self.cmd_read_sfr(Sfr::Ckon);
         // TODO: CKON only exists for some MCUs, better avoid setting it?
@@ -236,16 +236,12 @@ impl Flasher {
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x04);
         self.cmd_unk_2a();
-        let mut progress = 0;
-        for i in 0..data.len() {
-            data[i] = self.cmd_get_byte();
-            let new_progress = i * 100 / data.len();
-            if new_progress != progress {
-                progress = new_progress;
-                progress_fn(progress.try_into().unwrap());
+        for (i, byte) in data.iter_mut().enumerate() {
+            *byte = self.cmd_get_byte();
+            if i % 32 == 0 {
+                progress_fn((i) as _);
             }
         }
-        progress_fn(100);
         self.cmd_unk_2b();
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x00);
@@ -301,7 +297,7 @@ impl Flasher {
         res
     }
 
-    pub fn read_flash(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u8)) {
+    pub fn read_flash(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u64)) {
         self.cmd_pre1();
         self.sleep_ms(15);
 
@@ -353,7 +349,7 @@ impl Flasher {
         self.sleep_ms(15);
     }
 
-    pub fn write_flash(&mut self, data: &[u8], page_size: u8, progress_fn: &dyn Fn(u8)) {
+    pub fn write_flash(&mut self, data: &[u8], page_size: u8, progress_fn: &dyn Fn(u64)) {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
             panic!("Writing to a non-main ROM bank is not allowed");
         }
@@ -370,7 +366,6 @@ impl Flasher {
         let old_rom_bank = self.cmd_get_rom_bank();
         self.cmd_set_rom_bank(self.rom_bank as u8);
 
-        let page_count = data.len() / (page_size as usize);
         for (page, data) in data.chunks(page_size as usize).enumerate() {
             self.cmd_write_page(page, data);
             self.sleep_ms(5);
@@ -378,9 +373,8 @@ impl Flasher {
             self.cmd_check_write_finished();
             self.sleep_ms(5);
 
-            progress_fn((page * 100 / page_count).try_into().unwrap());
+            progress_fn(((page + 1) as u64) * page_size as u64);
         }
-        progress_fn(100);
 
         self.cmd_set_rom_bank(old_rom_bank);
 

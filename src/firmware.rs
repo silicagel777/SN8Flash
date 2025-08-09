@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::{cmp::max, ffi::OsStr, path::Path};
 
 #[derive(gset::Getset, PartialEq, Eq, Debug)]
@@ -33,14 +34,14 @@ pub struct Firmware {
 }
 
 impl Firmware {
-    pub fn from_file(path: &str, page_size: usize, base_offset: usize) -> Self {
-        let data = std::fs::read(path).unwrap();
+    pub fn from_file(path: &str, page_size: usize, base_offset: usize) -> Result<Self> {
+        let data = std::fs::read(path)?;
         let extension = Path::new(path)
             .extension()
             .and_then(OsStr::to_str)
             .unwrap_or_default();
         match extension {
-            "hex" | "hexa" | "ihex" | "ihx" => {
+            "hex" | "ihex" | "ihx" => {
                 log::info!("Loading {path} as Intel HEX");
                 Self::from_intel_hex(data, page_size, base_offset)
             }
@@ -51,48 +52,51 @@ impl Firmware {
         }
     }
 
-    pub fn from_raw_bytes(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Self {
+    pub fn from_raw_bytes(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Result<Self> {
         let sections = vec![Section {
             offset: base_offset,
             data: raw,
         }];
         let sections = Self::align_and_merge_sections(sections, page_size);
-        Firmware {
+        Ok(Firmware {
             len: Self::sections_len(&sections),
             page_size,
             sections,
-        }
+        })
     }
 
-    pub fn from_intel_hex(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Self {
+    pub fn from_intel_hex(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Result<Self> {
         let mut hex_offset = 0;
         let mut sections = Vec::new();
-        for record in ihex::Reader::new(str::from_utf8(&raw).unwrap()) {
-            match record.unwrap() {
-                ihex::Record::Data { offset, value } => {
+        let hex_str = std::str::from_utf8(&raw).map_err(Error::IHexDecodeError)?;
+        for (i, record) in ihex::Reader::new(hex_str).enumerate() {
+            match record {
+                Ok(ihex::Record::Data { offset, value }) => {
                     let full_offset = base_offset + hex_offset as usize + offset as usize;
                     sections.push(Section {
                         offset: full_offset,
                         data: value,
                     });
                 }
-                ihex::Record::ExtendedSegmentAddress(address) => {
+                Ok(ihex::Record::ExtendedSegmentAddress(address)) => {
                     hex_offset = (address as u32) * 16;
                 }
-                ihex::Record::ExtendedLinearAddress(address) => {
+                Ok(ihex::Record::ExtendedLinearAddress(address)) => {
                     hex_offset = (address as u32) << 16;
                 }
-                ihex::Record::StartSegmentAddress { .. } => {}
-                ihex::Record::StartLinearAddress(_) => {}
-                ihex::Record::EndOfFile => {}
+                Ok(ihex::Record::StartSegmentAddress { .. }) => {}
+                Ok(ihex::Record::StartLinearAddress(_)) => {}
+                Ok(ihex::Record::EndOfFile) => {}
+                Err(err) => return Err(Error::IHexParseError(err, i + 1)),
             };
         }
+
         let sections = Self::align_and_merge_sections(sections, page_size);
-        Firmware {
+        Ok(Firmware {
             len: Self::sections_len(&sections),
             page_size,
             sections,
-        }
+        })
     }
 
     fn align_and_merge_sections(mut sections: Vec<Section>, page_size: usize) -> Vec<Section> {

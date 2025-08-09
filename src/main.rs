@@ -7,14 +7,14 @@ use sonixflash::transport::{ResetType, SerialPortTransport};
 use std::io::Write;
 use structural_convert::StructuralConvert;
 
-#[derive(Clone, Debug, StructuralConvert, ValueEnum)]
+#[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum)]
 #[convert(into(ResetType))]
 enum ArgResetType {
     Rts,
     Dtr,
 }
 
-#[derive(Clone, Debug, StructuralConvert, ValueEnum)]
+#[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum)]
 #[convert(into(RomBank))]
 enum ArgRomBank {
     /// Main flash memory
@@ -130,20 +130,10 @@ enum Commands {
     },
 }
 
-fn main() -> anyhow::Result<()> {
-    let args = Cli::parse();
-
-    simplelog::TermLogger::init(
-        args.verbose.log_level_filter(),
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Stderr,
-        simplelog::ColorChoice::Auto,
-    )
-    .context("Failed to initialize logger")?;
-
+fn run(args: Cli) -> anyhow::Result<()> {
     let transport = {
         log::info!("Opening port {}...", args.port);
-        let mut serial = SerialPortTransport::new(&args.port);
+        let mut serial = SerialPortTransport::new(&args.port)?;
         serial.set_reset_type(args.reset_type.into());
         serial.set_reset_invert(args.reset_invert);
         Box::new(serial)
@@ -157,7 +147,7 @@ fn main() -> anyhow::Result<()> {
     flasher.set_dangerous_allow_write_non_main_bank(args.dangerous_allow_write_non_main_bank);
 
     log::info!("Connecting...");
-    let chip_id = flasher.connect();
+    let chip_id = flasher.connect()?;
     log::info!("Chip ID is {chip_id:#X}");
 
     match args.command {
@@ -166,7 +156,7 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Erase => {
             log::info!("Erasing flash...");
-            flasher.erase_flash();
+            flasher.erase_flash()?;
         }
         Commands::Read {
             ref path,
@@ -176,7 +166,7 @@ fn main() -> anyhow::Result<()> {
             log::info!("Reading {size} bytes of flash...");
             let mut data_read = vec![0; size as usize];
             let bar = ProgressBar::new(data_read.len() as _);
-            flasher.read_flash(offset, &mut data_read, &|x| bar.inc(x));
+            flasher.read_flash(offset, &mut data_read, &|x| bar.inc(x))?;
             bar.finish();
 
             match path {
@@ -200,11 +190,11 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Verify { ref path, offset } => {
             log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into());
+            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into())?;
 
             log::info!("Verifying flash...");
             let bar = ProgressBar::new(firmware.len() as _);
-            flasher.verify_flash(&firmware, &|x| bar.inc(x));
+            flasher.verify_flash(&firmware, &|x| bar.inc(x))?;
             bar.finish();
         }
         Commands::Write {
@@ -214,22 +204,22 @@ fn main() -> anyhow::Result<()> {
             no_verify,
         } => {
             log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into());
+            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into())?;
 
             if !no_erase {
                 log::info!("Erasing flash...");
-                flasher.erase_flash();
+                flasher.erase_flash()?;
             }
 
             log::info!("Writing {} bytes of flash...", firmware.len());
             let bar = ProgressBar::new(firmware.len() as _);
-            flasher.write_flash(&firmware, &|x| bar.inc(x));
+            flasher.write_flash(&firmware, &|x| bar.inc(x))?;
             bar.finish();
 
             if !no_verify {
                 log::info!("Verifying write...");
                 let bar = ProgressBar::new(firmware.len() as _);
-                flasher.verify_flash(&firmware, &|x| bar.inc(x));
+                flasher.verify_flash(&firmware, &|x| bar.inc(x))?;
                 bar.finish();
             }
         }
@@ -237,4 +227,21 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("Done!");
     Ok(())
+}
+
+fn main() {
+    let args = Cli::parse();
+
+    simplelog::TermLogger::init(
+        args.verbose.log_level_filter(),
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Stderr,
+        simplelog::ColorChoice::Auto,
+    )
+    .expect("Failed to initialize logger");
+
+    if let Err(err) = run(args) {
+        log::error!("{err:#}");
+        std::process::exit(1);
+    }
 }

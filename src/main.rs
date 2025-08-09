@@ -103,6 +103,10 @@ enum Commands {
         /// Input file path (raw binary or Intel HEX)
         #[arg(short = 'f', long = "file")]
         path: String,
+
+        /// Verify offset in bytes
+        #[arg(short = 'o', long, default_value_t = 0)]
+        offset: u16,
     },
 
     /// Write flash
@@ -110,6 +114,10 @@ enum Commands {
         /// Input file path (raw binary or Intel HEX)
         #[arg(short = 'f', long = "file")]
         path: String,
+
+        /// Write offset in bytes
+        #[arg(short = 'o', long, default_value_t = 0)]
+        offset: u16,
 
         /// Do not erase chip before writing
         #[arg(long, default_value_t = false)]
@@ -186,9 +194,9 @@ fn main() {
                 }
             }
         }
-        Commands::Verify { ref path } => {
+        Commands::Verify { ref path, offset } => {
             log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, args.page_size.into());
+            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into());
 
             log::info!("Verifying flash...");
             let bar = ProgressBar::new(firmware.len() as _);
@@ -197,11 +205,12 @@ fn main() {
         }
         Commands::Write {
             ref path,
+            offset,
             no_erase,
             no_verify,
         } => {
             log::info!("Opening {path}...");
-            let firmware = Firmware::from_file(path, args.page_size.into());
+            let firmware = Firmware::from_file(path, args.page_size.into(), offset.into());
 
             if !no_erase {
                 log::info!("Erasing flash...");

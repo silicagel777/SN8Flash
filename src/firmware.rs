@@ -33,7 +33,7 @@ pub struct Firmware {
 }
 
 impl Firmware {
-    pub fn from_file(path: &str, page_size: usize) -> Self {
+    pub fn from_file(path: &str, page_size: usize, base_offset: usize) -> Self {
         let data = std::fs::read(path).unwrap();
         let extension = Path::new(path)
             .extension()
@@ -42,18 +42,18 @@ impl Firmware {
         match extension {
             "hex" | "hexa" | "ihex" | "ihx" => {
                 log::info!("Loading {path} as Intel HEX");
-                Self::from_intel_hex(data, page_size)
+                Self::from_intel_hex(data, page_size, base_offset)
             }
             _ => {
                 log::info!("Loading {path} as raw binary");
-                Self::from_raw_binary(data, page_size)
+                Self::from_raw_bytes(data, page_size, base_offset)
             }
         }
     }
 
-    fn from_raw_binary(raw: Vec<u8>, page_size: usize) -> Self {
+    pub fn from_raw_bytes(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Self {
         let sections = vec![Section {
-            offset: 0,
+            offset: base_offset,
             data: raw,
         }];
         let sections = Self::align_and_merge_sections(sections, page_size);
@@ -64,23 +64,23 @@ impl Firmware {
         }
     }
 
-    fn from_intel_hex(raw: Vec<u8>, page_size: usize) -> Self {
-        let mut base_offset = 0u32;
+    pub fn from_intel_hex(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Self {
+        let mut hex_offset = 0;
         let mut sections = Vec::new();
         for record in ihex::Reader::new(str::from_utf8(&raw).unwrap()) {
             match record.unwrap() {
                 ihex::Record::Data { offset, value } => {
-                    let full_offset = base_offset as usize + offset as usize;
+                    let full_offset = base_offset + hex_offset as usize + offset as usize;
                     sections.push(Section {
                         offset: full_offset,
                         data: value,
                     });
                 }
                 ihex::Record::ExtendedSegmentAddress(address) => {
-                    base_offset = (address as u32) * 16;
+                    hex_offset = (address as u32) * 16;
                 }
                 ihex::Record::ExtendedLinearAddress(address) => {
-                    base_offset = (address as u32) << 16;
+                    hex_offset = (address as u32) << 16;
                 }
                 ihex::Record::StartSegmentAddress { .. } => {}
                 ihex::Record::StartLinearAddress(_) => {}

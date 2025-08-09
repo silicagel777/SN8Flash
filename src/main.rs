@@ -154,7 +154,7 @@ fn main() {
             log::info!("Reading {size} bytes of flash...");
             let mut data_read = vec![0; size as usize];
             let bar = ProgressBar::new(data_read.len() as _);
-            flasher.read_flash(offset, &mut data_read, &|x| bar.set_position(x));
+            flasher.read_flash(offset, &mut data_read, &|x| bar.inc(x));
             bar.finish();
 
             match path {
@@ -191,14 +191,14 @@ fn main() {
 
             log::info!("Writing {} bytes of flash...", data_write.len());
             let bar = ProgressBar::new(data_write.len() as _);
-            flasher.write_flash(&data_write, page_size, &|x| bar.set_position(x));
+            flasher.write_flash(&data_write, page_size, &|x| bar.inc(x));
             bar.finish();
 
             if !no_verify {
                 log::info!("Verifying write...");
                 let mut data_verify = vec![0; data_write.len()];
                 let bar = ProgressBar::new(data_verify.len() as _);
-                flasher.read_flash(0, &mut data_verify, &|x| bar.set_position(x));
+                flasher.read_flash(0, &mut data_verify, &|x| bar.inc(x));
                 bar.finish();
                 let verify_errors: Vec<_> = std::iter::zip(data_write, data_verify)
                     .enumerate()

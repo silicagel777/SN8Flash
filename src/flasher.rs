@@ -221,7 +221,7 @@ impl Flasher {
         assert_eq!(res, 0x015D, "Invalid write check result");
     }
 
-    fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u64)) {
+    fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress: &dyn Fn(u64)) {
         // Context save
         let old_8e_val = self.cmd_read_sfr(Sfr::Ckon);
         // TODO: CKON only exists for some MCUs, better avoid setting it?
@@ -239,11 +239,9 @@ impl Flasher {
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x04);
         self.cmd_unk_2a();
-        for (i, byte) in data.iter_mut().enumerate() {
+        for byte in data.iter_mut() {
             *byte = self.cmd_get_u8();
-            if i % 32 == 0 {
-                progress_fn((i) as _);
-            }
+            progress(1);
         }
         self.cmd_unk_2b();
         self.cmd_unk_48(0x88);
@@ -298,7 +296,7 @@ impl Flasher {
         self.cmd_chip_id()
     }
 
-    pub fn read_flash(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u64)) {
+    pub fn read_flash(&mut self, offset: u16, data: &mut [u8], progress: &dyn Fn(u64)) {
         self.cmd_pre1();
         self.sleep_ms(15);
 
@@ -307,7 +305,7 @@ impl Flasher {
 
         let old_rom_bank = self.cmd_get_rom_bank();
         self.cmd_set_rom_bank(self.rom_bank as u8);
-        self.cmd_read(offset, data, progress_fn);
+        self.cmd_read(offset, data, progress);
         self.cmd_set_rom_bank(old_rom_bank);
         self.sleep_ms(15);
 
@@ -350,7 +348,7 @@ impl Flasher {
         self.sleep_ms(15);
     }
 
-    pub fn write_flash(&mut self, data: &[u8], page_size: u8, progress_fn: &dyn Fn(u64)) {
+    pub fn write_flash(&mut self, data: &[u8], page_size: u8, progress: &dyn Fn(u64)) {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
             panic!("Writing to a non-main ROM bank is not allowed");
         }
@@ -374,7 +372,7 @@ impl Flasher {
             self.cmd_check_write_finished();
             self.sleep_ms(5);
 
-            progress_fn(((page + 1) as u64) * page_size as u64);
+            progress(data.len() as _);
         }
 
         self.cmd_set_rom_bank(old_rom_bank);

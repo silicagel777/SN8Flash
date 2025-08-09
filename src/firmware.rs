@@ -57,6 +57,12 @@ impl Firmware {
             offset: base_offset,
             data: raw,
         }];
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "Raw binary contains {} bytes",
+                Self::sections_len(&sections)
+            );
+        }
         let sections = Self::align_and_merge_sections(sections, page_size);
         Ok(Self {
             len: Self::sections_len(&sections),
@@ -90,7 +96,9 @@ impl Firmware {
                 Err(err) => return Err(Error::IHexParseError(err, i + 1)),
             }
         }
-
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!("Intel HEX contains {} bytes", Self::sections_len(&sections));
+        }
         let sections = Self::align_and_merge_sections(sections, page_size);
         Ok(Self {
             len: Self::sections_len(&sections),

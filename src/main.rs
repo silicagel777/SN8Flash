@@ -213,7 +213,11 @@ fn run(args: &Cli) -> anyhow::Result<()> {
         Commands::Verify { ref path, offset } => {
             let firmware = load_firmware(path, args.page_size, offset)?;
 
-            log::info!("Verifying flash...");
+            log::info!(
+                "Verifying {} bytes of flash ({} pages)...",
+                firmware.len(),
+                firmware.len() / firmware.page_size()
+            );
             let bar = ProgressBar::new(firmware.len() as _);
             flasher.verify_flash(&firmware, &|x| bar.inc(x))?;
             bar.finish();
@@ -231,7 +235,11 @@ fn run(args: &Cli) -> anyhow::Result<()> {
                 flasher.erase_flash()?;
             }
 
-            log::info!("Writing {} bytes of flash...", firmware.len());
+            log::info!(
+                "Writing {} bytes of flash ({} pages)...",
+                firmware.len(),
+                firmware.len() / firmware.page_size()
+            );
             let bar = ProgressBar::new(firmware.len() as _);
             flasher.write_flash(&firmware, &|x| bar.inc(x))?;
             bar.finish();

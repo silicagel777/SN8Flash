@@ -88,4 +88,4 @@ Alternatively, you can build SonixFlash from source. Install a recent [Rust tool
   - It is mostly undocumented, but some datasheets mention unique chip ID being stored there.
   - It can be read, erased and written just like the main area. But if you erase it, the chip won't leave bootloader mode and will never proceed to the main program. Make backups! SonixFlash won't allow erasing or writing it until you set a special flag.
   - Read protection does not affect boot parameter area.
-  - The official "SN-Link ICP" software reads some values from the area, bit I have no clue what it uses them for. It doesn't complain even if the area is completely wiped. Mystery everywhere!
+  - The official "SN-Link ICP" software reads some values from the area, but I have no clue what it uses them for. It doesn't complain even if the area is completely wiped. Mystery everywhere!

@@ -93,17 +93,29 @@ impl Flasher {
     }
 
     fn cmd_chip_id(&mut self) -> u32 {
-        self.transport.write(&[0x55, 0x21, 0x55, 0xA0]);
-        let mut res = [0; 4];
-        self.transport.read(&mut res);
-        u32::from_le_bytes(res)
+        self.transport.write(&[0x55, 0x21]);
+        self.cmd_get_u32()
     }
 
-    fn cmd_get_byte(&mut self) -> u8 {
+    fn cmd_get_u8(&mut self) -> u8 {
         self.transport.write(&[0x55, 0x88]);
         let mut res = [0];
         self.transport.read(&mut res);
         res[0]
+    }
+
+    fn cmd_get_u16(&mut self) -> u16 {
+        self.transport.write(&[0x55, 0x8B]);
+        let mut res = [0; 2];
+        self.transport.read(&mut res);
+        u16::from_le_bytes(res)
+    }
+
+    fn cmd_get_u32(&mut self) -> u32 {
+        self.transport.write(&[0x55, 0xA0]);
+        let mut res = [0; 4];
+        self.transport.read(&mut res);
+        u32::from_le_bytes(res)
     }
 
     fn cmd_unk_2a(&mut self) {
@@ -126,14 +138,7 @@ impl Flasher {
         self.transport.write(&[0x55, 0x58, arg1, arg2, arg3]);
     }
 
-    fn cmd_unk_8b(&mut self) -> [u8; 2] {
-        self.transport.write(&[0x55, 0x8B]);
-        let mut res = [0; 2];
-        self.transport.read(&mut res);
-        res
-    }
-
-    fn cmd_exec(&mut self, opcode: u8, arg1: u8, arg2: u8) {
+    fn cmd_exec_op(&mut self, opcode: u8, arg1: u8, arg2: u8) {
         self.cmd_unk_48(0x86);
         self.cmd_unk_58(arg2, arg1, opcode);
         self.cmd_unk_48(0x80);
@@ -141,29 +146,39 @@ impl Flasher {
     }
 
     fn cmd_write_ram(&mut self, address: u8, data: u8) {
-        self.cmd_exec(0x75, address, data); // MOV direct, #data
+        self.cmd_exec_op(0x75, address, data); // MOV direct, #data
+    }
+
+    fn cmd_read_ram(&mut self, address: u8) -> u8 {
+        self.cmd_exec_op(0xE5, address, 0x00); // MOV A, direct
+        self.cmd_unk_48(0x83);
+        self.cmd_get_u8()
     }
 
     fn cmd_write_sfr(&mut self, sfr: Sfr, data: u8) {
         self.cmd_write_ram(sfr as u8, data);
     }
 
+    fn cmd_read_sfr(&mut self, sfr: Sfr) -> u8 {
+        self.cmd_read_ram(sfr as u8)
+    }
+
     fn cmd_write_xram(&mut self, address: u16, data: u8) {
         let address_bytes = address.to_le_bytes();
-        self.cmd_exec(0x90, address_bytes[1], address_bytes[0]); // MOV DPTR, #data16
-        self.cmd_exec(0x74, data, 0x00); // MOV A, #data
-        self.cmd_exec(0xF0, 0x00, 0x00); // MOVX @DPTR, A
+        self.cmd_exec_op(0x90, address_bytes[1], address_bytes[0]); // MOV DPTR, #data16
+        self.cmd_exec_op(0x74, data, 0x00); // MOV A, #data
+        self.cmd_exec_op(0xF0, 0x00, 0x00); // MOVX @DPTR, A
     }
 
     fn cmd_read_xram(&mut self, address: u16) -> u8 {
         let address_bytes = address.to_le_bytes();
-        self.cmd_exec(0x90, address_bytes[1], address_bytes[0]); // MOV DPTR, #data16
+        self.cmd_exec_op(0x90, address_bytes[1], address_bytes[0]); // MOV DPTR, #data16
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x05);
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x00);
         self.cmd_unk_48(0x83);
-        self.cmd_get_byte()
+        self.cmd_get_u8()
     }
 
     fn cmd_get_rom_bank(&mut self) -> u8 {
@@ -204,18 +219,8 @@ impl Flasher {
 
     fn cmd_check_write_finished(&mut self) {
         self.cmd_unk_48(0x81);
-        let res = self.cmd_unk_8b();
-        assert_eq!(res, [0x5D, 0x01], "Invalid write check result");
-    }
-
-    fn cmd_read_ram(&mut self, address: u8) -> u8 {
-        self.cmd_exec(0xE5, address, 0x00); // MOV A, direct
-        self.cmd_unk_48(0x83);
-        self.cmd_get_byte()
-    }
-
-    fn cmd_read_sfr(&mut self, sfr: Sfr) -> u8 {
-        self.cmd_read_ram(sfr as u8)
+        let res = self.cmd_get_u16();
+        assert_eq!(res, 0x015D, "Invalid write check result");
     }
 
     fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u64)) {
@@ -232,12 +237,12 @@ impl Flasher {
         self.cmd_write_sfr(Sfr::Dps, 0x00);
         self.cmd_write_sfr(Sfr::Dpc, 0x00);
         let offset_bytes = offset.to_le_bytes();
-        self.cmd_exec(0x90, offset_bytes[1], offset_bytes[0]);
+        self.cmd_exec_op(0x90, offset_bytes[1], offset_bytes[0]);
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x04);
         self.cmd_unk_2a();
         for (i, byte) in data.iter_mut().enumerate() {
-            *byte = self.cmd_get_byte();
+            *byte = self.cmd_get_u8();
             if i % 32 == 0 {
                 progress_fn((i) as _);
             }

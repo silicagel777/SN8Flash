@@ -37,6 +37,7 @@ impl SerialPortTransport {
 
 impl Transport for SerialPortTransport {
     fn write(&mut self, data: &[u8]) {
+        log::trace!("Writing {data:02X?}");
         let written = self
             .port
             .write(data)
@@ -53,17 +54,21 @@ impl Transport for SerialPortTransport {
                 "Write/read data mismatch, check RX+TX connection"
             );
         }
+        log::trace!("Written {} bytes", data.len());
     }
 
     fn read(&mut self, data: &mut [u8]) {
+        log::trace!("Reading {} bytes", data.len());
         for i in 0..data.len() {
             self.port
                 .read_exact(&mut data[i..i + 1])
                 .expect("Failed to read from serial port");
         }
+        log::trace!("Read {data:02X?}");
     }
 
     fn set_reset(&mut self, mut level: bool) {
+        log::trace!("Setting reset to {level}");
         if self.reset_invert {
             level = !level;
         }

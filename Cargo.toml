@@ -16,3 +16,10 @@ serialport = "4.7.2"
 simplelog = "0.12.2"
 structural-convert = "0.13.0"
 thiserror = "2.0.12"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"

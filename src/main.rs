@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
 use sonixflash::flasher::{Flasher, RomBank};
 use sonixflash::transport::{ResetType, SerialPortTransport};
@@ -25,7 +25,7 @@ impl From<CommandResetType> for ResetType {
 /// Sonix SN8F flash tool
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct CommandArgs {
+struct Cli {
     /// Serial port
     #[arg(short, long)]
     port: String,
@@ -54,10 +54,33 @@ struct CommandArgs {
     /// Flash page size for writing (check datasheet)
     #[arg(long, default_value_t = 0x20)]
     page_size: usize,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Connect and read Chip ID
+    ChipId,
+    /// Read flash
+    Read {
+        /// Output file path
+        #[arg(short, long)]
+        path: String,
+    },
+    /// Write flash
+    Write {
+        /// Input file path
+        #[arg(short, long)]
+        path: String,
+    },
+    /// Reset chip
+    Reset,
 }
 
 fn main() {
-    let args = CommandArgs::parse();
+    let args = Cli::parse();
 
     simplelog::TermLogger::init(
         args.verbose.log_level_filter(),
@@ -82,45 +105,72 @@ fn main() {
     flasher.set_page_size(args.page_size);
     flasher.set_rom_bank(RomBank::Main);
 
-    log::info!("Connecting...");
-    let chip_id = flasher.connect();
-    log::info!("Chip ID is {chip_id:#X}");
+    match args.command {
+        Some(Commands::ChipId) => {
+            log::info!("Connecting...");
+            let chip_id = flasher.connect();
+            log::info!("Chip ID is {chip_id:#X}");
 
-    log::info!("Reading flash...");
-    let mut data_read = [0; 4096];
-    let bar = ProgressBar::new(100);
-    flasher.read_flash(0, &mut data_read, &|x| bar.set_position(x.into()));
-    bar.finish();
-    let file_name = "dump_read.bin";
-    log::info!("Saving to {file_name}...");
-    let mut file = File::create(file_name).unwrap();
-    file.write_all(&data_read).unwrap();
+            log::info!("Resetting chip...");
+            flasher.reset();
+        }
+        Some(Commands::Read { path }) => {
+            log::info!("Connecting...");
+            let chip_id = flasher.connect();
+            log::info!("Chip ID is {chip_id:#X}");
 
-    log::info!("Erasing flash...");
-    flasher.erase_flash();
+            log::info!("Reading flash...");
+            let mut data_read = [0; 4096];
+            let bar = ProgressBar::new(100);
+            flasher.read_flash(0, &mut data_read, &|x| bar.set_position(x.into()));
+            bar.finish();
 
-    log::info!("Writing flash...");
-    let mut data_write = [0; 4096];
-    let file_name = "src_blink.bin";
-    let mut file = File::open(file_name).unwrap();
-    file.read_exact(&mut data_write).unwrap();
-    let bar = ProgressBar::new(100);
-    flasher.write_flash(&data_write, &|x| bar.set_position(x.into()));
+            log::info!("Saving to {path}...");
+            let mut file = File::create(path).unwrap();
+            file.write_all(&data_read).unwrap();
 
-    log::info!("Verifying write...");
-    let mut data_verify = [0; 4096];
-    let bar = ProgressBar::new(100);
-    flasher.read_flash(0, &mut data_verify, &|x| bar.set_position(x.into()));
-    bar.finish();
-    let file_name = "dump_verify.bin";
-    log::info!("Saving to {file_name}...");
-    let mut file = File::create(file_name).unwrap();
-    file.write_all(&data_verify).unwrap();
+            log::info!("Resetting chip...");
+            flasher.reset();
+        }
+        Some(Commands::Write { path }) => {
+            log::info!("Opening {path}...");
+            let mut file = File::open(path).unwrap();
+            let file_size = file.metadata().unwrap().len();
+            let mut data_write = vec![0; file_size.try_into().unwrap()];
+            file.read_exact(&mut data_write).unwrap();
 
-    log::info!("Resetting chip...");
-    flasher.reset();
+            log::info!("Connecting...");
+            let chip_id = flasher.connect();
+            log::info!("Chip ID is {chip_id:#X}");
 
-    assert_eq!(data_write, data_verify);
+            log::info!("Erasing flash...");
+            flasher.erase_flash();
+
+            log::info!("Writing flash...");
+            let bar = ProgressBar::new(100);
+            flasher.write_flash(&data_write, &|x| bar.set_position(x.into()));
+
+            log::info!("Verifying write...");
+            let mut data_verify = vec![0; data_write.len()];
+            let bar = ProgressBar::new(100);
+            flasher.read_flash(0, &mut data_verify, &|x| bar.set_position(x.into()));
+            bar.finish();
+
+            if data_write != data_verify {
+                log::error!("Verify error!");
+            }
+
+            log::info!("Resetting chip...");
+            flasher.reset();
+        }
+        Some(Commands::Reset) => {
+            log::info!("Resetting chip...");
+            flasher.reset();
+        }
+        None => {
+            log::warn!("No command chosen, doing nothing...");
+        }
+    };
 
     log::info!("Done!");
 }

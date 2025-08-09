@@ -5,6 +5,7 @@ use sonixflash::firmware::Firmware;
 use sonixflash::flasher::{Flasher, RomBank};
 use sonixflash::transport::{ResetType, SerialPortTransport};
 use std::io::Write;
+use std::process::ExitCode;
 use structural_convert::StructuralConvert;
 
 #[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum)]
@@ -228,7 +229,7 @@ fn run(args: Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() {
+fn main() -> ExitCode {
     let args = Cli::parse();
 
     simplelog::TermLogger::init(
@@ -241,6 +242,8 @@ fn main() {
 
     if let Err(err) = run(args) {
         log::error!("{err:#}");
-        std::process::exit(1);
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
     }
 }

@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 use indicatif::ProgressBar;
-use sonixflash::flasher::{Flasher, ResetType};
+use sonixflash::flasher::{Flasher, ResetType, RomBank};
 use std::{
     fs::File,
     io::{Read, Write},
@@ -52,24 +52,21 @@ fn main() {
     let port = &args.port;
 
     println!("Opening port {port}...");
-    let mut sf = Flasher::new(
-        port,
-        args.reset_type.into(),
-        args.reset_invert,
-        args.reset_duration,
-        args.connect_duration,
-    );
+    let mut sf = Flasher::new(port);
+    sf.set_reset_type(args.reset_type.into());
+    sf.set_reset_invert(args.reset_invert);
+    sf.set_reset_duration_ms(args.reset_duration);
+    sf.set_connect_duration_us(args.connect_duration);
+    sf.set_rom_bank(RomBank::Main);
 
     println!("Connecting...");
     let chip_id = sf.connect();
     println!("Chip ID is {chip_id:#X}");
 
-    sf.test();
-
     println!("Reading flash...");
     let mut data_read = [0; 4096];
     let bar = ProgressBar::new(100);
-    sf.read_flash(0, &mut data_read, 0, &|x| bar.set_position(x.into()));
+    sf.read_flash(0, &mut data_read, &|x| bar.set_position(x.into()));
     bar.finish();
     let file_name = "dump_read.bin";
     println!("Saving to {file_name}...");
@@ -85,12 +82,12 @@ fn main() {
     let mut file = File::open(file_name).unwrap();
     file.read_exact(&mut data_write).unwrap();
     let bar = ProgressBar::new(100);
-    sf.write_flash(&data_write, 0, &|x| bar.set_position(x.into()));
+    sf.write_flash(&data_write, &|x| bar.set_position(x.into()));
 
     println!("Verifying write...");
     let mut data_verify = [0; 4096];
     let bar = ProgressBar::new(100);
-    sf.read_flash(0, &mut data_verify, 0, &|x| bar.set_position(x.into()));
+    sf.read_flash(0, &mut data_verify, &|x| bar.set_position(x.into()));
     bar.finish();
     let file_name = "dump_verify.bin";
     println!("Saving to {file_name}...");

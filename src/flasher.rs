@@ -1,38 +1,86 @@
 const PAGE_SIZE: u8 = 32;
 
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq)]
+enum Sfr {
+    /// Data pointer 0 low byte register
+    Dpl = 0x82,
+    /// Data pointer 0 high byte register   
+    Dph = 0x83,
+    /// Extended cycle controls register  
+    Ckon = 0x8E,
+    /// Data pointer selection register
+    Dps = 0x92,
+    /// Data pointer control register
+    Dpc = 0x93,
+    /// In-System Program command register
+    Pecmd = 0x94,
+    /// In-System Program ROM address low byte
+    Peroml = 0x95,
+    /// In-System Program ROM address high byte
+    Peromh = 0x96,
+    /// In-System Program RAM mapping address
+    Peram = 0x97,
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq)]
+pub enum RomBank {
+    /// Main flash memory
+    Main = 0,
+    /// Some sort of boot parameter area. I've accidentally wiped it on
+    /// SN8F570212, and the chip would no longer leave the built-in bootloader
+    /// until I've restored it back. Fun stuff!
+    Boot = 1,
+}
+
+#[derive(Clone, Copy, PartialEq)]
 pub enum ResetType {
     Rts,
     Dtr,
 }
 
+#[derive(getset::Getters, getset::Setters)]
 pub struct Flasher {
+    // Inner fields
     port: Box<dyn serialport::SerialPort>,
+
+    // Params
+    #[getset(get = "pub with_prefix", set = "pub")]
     reset_type: ResetType,
+
+    #[getset(get = "pub with_prefix", set = "pub")]
     reset_invert: bool,
-    reset_duration_ms: u64,   // 10ms is recommended
-    connect_duration_us: u64, // 1666us is recommended
+
+    #[getset(get = "pub with_prefix", set = "pub")]
+    reset_duration_ms: u64,
+
+    #[getset(get = "pub with_prefix", set = "pub")]
+    connect_duration_us: u64,
+
+    #[getset(get = "pub with_prefix", set = "pub")]
+    rom_bank: RomBank,
+
+    #[getset(get = "pub with_prefix", set = "pub")]
+    dangerous_allow_write_non_main_bank: bool,
 }
 
 impl Flasher {
     // Common stuff ===========================================================
 
-    pub fn new(
-        port: &str,
-        reset_type: ResetType,
-        reset_invert: bool,
-        reset_duration_ms: u64,
-        connect_duration_us: u64,
-    ) -> Self {
+    pub fn new(port: &str) -> Self {
         let port = serialport::new(port, 750_000)
             .timeout(std::time::Duration::from_millis(50))
             .open()
             .expect("Failed to open serial port");
         Flasher {
             port,
-            reset_type,
-            reset_invert,
-            reset_duration_ms,
-            connect_duration_us,
+            rom_bank: RomBank::Boot,
+            reset_type: ResetType::Rts,
+            reset_invert: false,
+            reset_duration_ms: 10,
+            connect_duration_us: 1666,
+            dangerous_allow_write_non_main_bank: false,
         }
     }
 
@@ -147,103 +195,106 @@ impl Flasher {
         res
     }
 
-    fn cmd_opcode(&mut self, arg2: u8, arg1: u8, opcode: u8) {
+    fn cmd_exec(&mut self, opcode: u8, arg1: u8, arg2: u8) {
         self.cmd_unk_48(0x86);
         self.cmd_unk_58(arg2, arg1, opcode);
         self.cmd_unk_48(0x80);
         self.cmd_unk_4b(0x57, 0x01);
     }
 
-    fn cmd_opcode_mov_direct(&mut self, data: u8, address: u8) {
-        self.cmd_opcode(data, address, 0x75);
+    fn cmd_write_ram(&mut self, address: u8, data: u8) {
+        self.cmd_exec(0x75, address, data); // MOV direct, #data
     }
 
-    fn cmd_unk_post_write(&mut self) {
+    fn cmd_write_sfr(&mut self, sfr: Sfr, data: u8) {
+        self.cmd_write_ram(sfr as u8, data);
+    }
+
+    fn cmd_write_xram(&mut self, address: u16, data: u8) {
+        let address_bytes = address.to_le_bytes();
+        self.cmd_exec(0x90, address_bytes[1], address_bytes[0]); // MOV DPTR, #data16
+        self.cmd_exec(0x74, data, 0x00); // MOV A, #data
+        self.cmd_exec(0xF0, 0x00, 0x00); // MOVX @DPTR, A
+    }
+
+    fn cmd_read_xram(&mut self, address: u16) -> u8 {
+        let address_bytes = address.to_le_bytes();
+        self.cmd_exec(0x90, address_bytes[1], address_bytes[0]); // MOV DPTR, #data16
+        self.cmd_unk_48(0x88);
+        self.cmd_unk_48(0x05);
+        self.cmd_unk_48(0x88);
+        self.cmd_unk_48(0x00);
+        self.cmd_unk_48(0x83);
+        self.cmd_get_byte()
+    }
+
+    fn cmd_get_rom_bank(&mut self) -> u8 {
+        self.cmd_read_xram(0xFFFC)
+    }
+
+    fn cmd_set_rom_bank(&mut self, bank: u8) {
+        self.cmd_write_xram(0xFFFC, bank);
+    }
+
+    fn cmd_pre1(&mut self) {
+        self.cmd_set_rom_bank(0);
+        self.cmd_write_sfr(Sfr::Peram, 0x00);
+        self.cmd_write_sfr(Sfr::Peromh, 0x00);
+        self.cmd_write_sfr(Sfr::Peroml, 0x00);
+        self.cmd_unk_48(0x80);
+        self.cmd_unk_4b(0x75, 0x01);
+    }
+
+    fn cmd_pre2(&mut self) {
+        self.cmd_unk_48(0x80);
+        self.cmd_unk_4b(0x55, 0x01);
+        self.cmd_write_xram(0xFFF8, 0xC3);
+        self.cmd_write_xram(0xFFFB, 0xC3);
+    }
+
+    fn cmd_post1(&mut self) {
+        self.cmd_unk_48(0x80);
+        self.cmd_unk_4b(0x75, 0x01);
+    }
+
+    fn cmd_post2(&mut self) {
+        self.cmd_unk_48(0x80);
+        self.cmd_unk_4b(0x55, 0x01);
+        self.cmd_write_xram(0xFFF8, 0xC3);
+        self.cmd_write_xram(0xFFFB, 0xC3);
+    }
+
+    fn cmd_check_write_finished(&mut self) {
         self.cmd_unk_48(0x81);
-        assert_eq!(self.cmd_unk_8b(), [0x5D, 0x01]);
+        let res = self.cmd_unk_8b();
+        assert_eq!(res, [0x5D, 0x01], "Invalid write check result");
     }
 
-    fn cmd_unk_pre1(&mut self) {
-        self.cmd_opcode(0xFC, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0x00, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
-        self.cmd_opcode_mov_direct(0x00, 0x97);
-        self.cmd_opcode_mov_direct(0x00, 0x96);
-        self.cmd_opcode_mov_direct(0x00, 0x95);
-        self.cmd_unk_48(0x80);
-        self.cmd_unk_4b(0x75, 0x01);
+    fn cmd_read_ram(&mut self, address: u8) -> u8 {
+        self.cmd_exec(0xE5, address, 0x00); // MOV A, direct
+        self.cmd_unk_48(0x83);
+        self.cmd_get_byte()
     }
 
-    fn cmd_unk_pre2(&mut self) {
-        self.cmd_unk_48(0x80);
-        self.cmd_unk_4b(0x55, 0x01);
-        self.cmd_opcode(0xF8, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0xC3, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
-        self.cmd_opcode(0xFB, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0xC3, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
+    fn cmd_read_sfr(&mut self, sfr: Sfr) -> u8 {
+        self.cmd_read_ram(sfr as u8)
     }
 
-    fn cmd_unk_post1(&mut self) {
-        self.cmd_unk_48(0x80);
-        self.cmd_unk_4b(0x75, 0x01);
-    }
+    fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u8)) {
+        // Context save
+        let old_8e_val = self.cmd_read_sfr(Sfr::Ckon);
+        // TODO: CKON only exists for some MCUs, better avoid setting it?
+        self.cmd_write_sfr(Sfr::Ckon, 0x71);
+        let old_dps_val = self.cmd_read_sfr(Sfr::Dps);
+        let old_dpc_val = self.cmd_read_sfr(Sfr::Dpc);
+        let old_dpl_val = self.cmd_read_sfr(Sfr::Dpl);
+        let old_dph_val = self.cmd_read_sfr(Sfr::Dph);
 
-    fn cmd_unk_post2(&mut self) {
-        self.cmd_unk_48(0x80);
-        self.cmd_unk_4b(0x55, 0x01);
-        self.cmd_opcode(0xF8, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0xC3, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
-        self.cmd_opcode(0xFB, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0xC3, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
-    }
-
-    fn cmd_read(&mut self, offset: u16, data: &mut [u8], bank: u8, progress_fn: &dyn Fn(u8)) {
-        // Read byte from address 0x8E???
-        self.cmd_opcode(0x00, 0x8E, 0xE5);
-        self.cmd_unk_48(0x83);
-        assert_eq!(self.cmd_get_byte(), 0x71);
-
-        // Write byte to address 0x8E???
-        self.cmd_opcode_mov_direct(0x71, 0x8E);
-
-        // Read byte from address 0x92???
-        self.cmd_opcode(0x00, 0x92, 0xE5);
-        self.cmd_unk_48(0x83);
-        assert_eq!(self.cmd_get_byte(), 0x00);
-
-        // Read byte from address 0x93???
-        self.cmd_opcode(0x00, 0x93, 0xE5);
-        self.cmd_unk_48(0x83);
-        assert_eq!(self.cmd_get_byte(), 0x00);
-
-        // Read byte from address 0x82???
-        self.cmd_opcode(0x00, 0x82, 0xE5);
-        self.cmd_unk_48(0x83);
-        assert_eq!(self.cmd_get_byte(), 0xFB);
-
-        // Read byte from address 0x83???
-        self.cmd_opcode(0x00, 0x83, 0xE5);
-        self.cmd_unk_48(0x83);
-        assert_eq!(self.cmd_get_byte(), 0xFF);
-
-        // Bank 0x01 is some sort of bootloader area
-        if bank > 0 {
-            assert_eq!(self.cmd_get_rom_bank(), 0x00);
-            self.cmd_set_rom_bank(bank);
-        }
-
-        // Write byte to address 0x92???
-        // Write byte to address 0x93???
-        self.cmd_opcode_mov_direct(0x00, 0x92);
-        self.cmd_opcode_mov_direct(0x00, 0x93);
-
-        // the only stuff that's really necessary start...
+        // Bulk ROM read
+        self.cmd_write_sfr(Sfr::Dps, 0x00);
+        self.cmd_write_sfr(Sfr::Dpc, 0x00);
         let offset_bytes = offset.to_le_bytes();
-        self.cmd_opcode(offset_bytes[0], offset_bytes[1], 0x90);
+        self.cmd_exec(0x90, offset_bytes[1], offset_bytes[0]);
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x04);
         self.cmd_unk_2a();
@@ -260,64 +311,38 @@ impl Flasher {
         self.cmd_unk_2b();
         self.cmd_unk_48(0x88);
         self.cmd_unk_48(0x00);
-        // the only stuff that's really necessary end...
 
-        // Seems to reuse previously-read numbers?..
-        self.cmd_opcode_mov_direct(0x71, 0x8E);
-
-        if bank > 0 {
-            assert_eq!(self.cmd_get_rom_bank(), bank);
-            self.cmd_set_rom_bank(0);
-        }
-
-        self.cmd_opcode_mov_direct(0x00, 0x92);
-        self.cmd_opcode_mov_direct(0x00, 0x93);
-        self.cmd_opcode_mov_direct(0xFB, 0x82);
-        self.cmd_opcode_mov_direct(0xFF, 0x83);
+        // Context restore
+        self.cmd_write_sfr(Sfr::Ckon, old_8e_val);
+        self.cmd_write_sfr(Sfr::Dps, old_dps_val);
+        self.cmd_write_sfr(Sfr::Dpc, old_dpc_val);
+        self.cmd_write_sfr(Sfr::Dpl, old_dpl_val);
+        self.cmd_write_sfr(Sfr::Dph, old_dph_val);
     }
 
     fn cmd_erase(&mut self) {
-        // Why current rom bank is read? Maybe it should be restored after?
-        assert_eq!(self.cmd_get_rom_bank(), 0x00);
-        self.cmd_set_rom_bank(0);
-        self.cmd_opcode_mov_direct(0x0A, 0x95);
-        self.cmd_opcode_mov_direct(0x96, 0x94);
+        self.cmd_write_sfr(Sfr::Peroml, 0x0A);
+        self.cmd_write_sfr(Sfr::Pecmd, 0x96);
     }
 
     fn cmd_reload_protection(&mut self) {
-        self.cmd_opcode(0xF8, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0x5A, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
-        self.cmd_opcode(0xFB, 0xFF, 0x90);
-        self.cmd_opcode(0x00, 0xA5, 0x74);
-        self.cmd_opcode(0x00, 0x00, 0xF0);
+        self.cmd_write_xram(0xFFF8, 0x5A);
+        self.cmd_write_xram(0xFFFB, 0xA5);
     }
 
     fn cmd_write_page(&mut self, page: usize, data: &[u8]) {
-        assert_eq!(data.len(), PAGE_SIZE as usize);
+        assert_eq!(
+            data.len(),
+            PAGE_SIZE as usize,
+            "Data length is not equal to page size"
+        );
         for (i, byte) in data.iter().enumerate() {
-            self.cmd_opcode_mov_direct(*byte, i as u8);
+            self.cmd_write_ram(i as u8, *byte);
         }
-        self.cmd_opcode_mov_direct(0x00, 0x97);
-        self.cmd_opcode_mov_direct((page / 8) as u8, 0x96);
-        self.cmd_opcode_mov_direct(((page % 8) as u8) << 5 | 0x0A, 0x95);
-        self.cmd_opcode_mov_direct(0x5A, 0x94);
-    }
-
-    fn cmd_get_rom_bank(&mut self) -> u8 {
-        self.cmd_opcode(0xFC, 0xFF, 0x90); // MOV DPTR, #data16
-        self.cmd_unk_48(0x88);
-        self.cmd_unk_48(0x05);
-        self.cmd_unk_48(0x88);
-        self.cmd_unk_48(0x00);
-        self.cmd_unk_48(0x83);
-        self.cmd_get_byte()
-    }
-
-    fn cmd_set_rom_bank(&mut self, bank: u8) {
-        self.cmd_opcode(0xFC, 0xFF, 0x90); // MOV DPTR, #data16
-        self.cmd_opcode(0x00, bank, 0x74); // MOV A, #data
-        self.cmd_opcode(0x00, 0x00, 0xF0); // MOVX @DPTR, A
+        self.cmd_write_sfr(Sfr::Peram, 0x00);
+        self.cmd_write_sfr(Sfr::Peromh, (page / 8) as u8);
+        self.cmd_write_sfr(Sfr::Peroml, ((page % 8) as u8) << 5 | 0x0A);
+        self.cmd_write_sfr(Sfr::Pecmd, 0x5A);
     }
 
     // High-level commands ====================================================
@@ -341,118 +366,90 @@ impl Flasher {
         res
     }
 
-    pub fn read_flash(&mut self, offset: u16, data: &mut [u8], bank: u8, progress_fn: &dyn Fn(u8)) {
-        self.cmd_unk_pre1();
+    pub fn read_flash(&mut self, offset: u16, data: &mut [u8], progress_fn: &dyn Fn(u8)) {
+        self.cmd_pre1();
         self.sleep_ms(15);
 
-        self.cmd_unk_pre2();
+        self.cmd_pre2();
         self.sleep_ms(15);
 
-        self.cmd_read(offset, data, bank, progress_fn);
+        let old_rom_bank = self.cmd_get_rom_bank();
+        self.cmd_set_rom_bank(self.rom_bank as u8);
+        self.cmd_read(offset, data, progress_fn);
+        self.cmd_set_rom_bank(old_rom_bank);
         self.sleep_ms(15);
 
-        self.cmd_unk_post1();
+        self.cmd_post1();
         self.sleep_ms(15);
 
-        self.cmd_unk_post2();
+        self.cmd_post2();
         self.sleep_ms(15);
     }
 
     pub fn erase_flash(&mut self) {
-        self.cmd_unk_pre1();
+        if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
+            panic!("Erasing a non-main ROM bank is not allowed");
+        }
+
+        self.cmd_pre1();
         self.sleep_ms(15);
 
-        self.cmd_unk_pre2();
+        self.cmd_pre2();
         self.sleep_ms(15);
+
+        let old_rom_bank = self.cmd_get_rom_bank();
+        self.cmd_set_rom_bank(self.rom_bank as u8);
 
         self.cmd_erase();
         self.sleep_ms(15);
 
-        self.cmd_unk_post_write();
+        self.cmd_check_write_finished();
         self.sleep_ms(15);
+
+        self.cmd_set_rom_bank(old_rom_bank);
 
         self.cmd_reload_protection();
         self.sleep_ms(15);
 
-        self.cmd_unk_post1();
+        self.cmd_post1();
         self.sleep_ms(15);
 
-        self.cmd_unk_post2();
+        self.cmd_post2();
         self.sleep_ms(15);
     }
 
-    pub fn write_flash(&mut self, data: &[u8], bank: u8, progress_fn: &dyn Fn(u8)) {
-        self.cmd_unk_pre1();
-        self.sleep_ms(15);
-
-        self.cmd_unk_pre2();
-        self.sleep_ms(15);
-
-        if bank > 0 {
-            assert_eq!(self.cmd_get_rom_bank(), 0x00);
-            self.cmd_set_rom_bank(bank);
+    pub fn write_flash(&mut self, data: &[u8], progress_fn: &dyn Fn(u8)) {
+        if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
+            panic!("Writing to a non-main ROM bank is not allowed");
         }
+
+        self.cmd_pre1();
+        self.sleep_ms(15);
+
+        self.cmd_pre2();
+        self.sleep_ms(15);
+
+        let old_rom_bank = self.cmd_get_rom_bank();
+        self.cmd_set_rom_bank(self.rom_bank as u8);
 
         let page_count = data.len() / PAGE_SIZE as usize;
         for (page, data) in data.chunks(PAGE_SIZE as usize).enumerate() {
             self.cmd_write_page(page, data);
             self.sleep_ms(5);
 
-            self.cmd_unk_post_write();
+            self.cmd_check_write_finished();
             self.sleep_ms(5);
 
             progress_fn((page * 100 / page_count).try_into().unwrap());
         }
         progress_fn(100);
 
-        if bank > 0 {
-            assert_eq!(self.cmd_get_rom_bank(), bank);
-            self.cmd_set_rom_bank(0);
-        }
+        self.cmd_set_rom_bank(old_rom_bank);
 
-        self.cmd_unk_post1();
+        self.cmd_post1();
         self.sleep_ms(15);
 
-        self.cmd_unk_post2();
-        self.sleep_ms(15);
-    }
-
-    pub fn test(&mut self) {
-        self.cmd_unk_pre1();
-        self.sleep_ms(15);
-
-        self.cmd_unk_pre2();
-        self.sleep_ms(15);
-
-        // let src = 0x69;
-        // // Write byte to address 0x02
-        // self.cmd_opcode_mov_direct(src, 0x02);
-        // // Read byte from address 0x02
-        // self.cmd_opcode(0x00, 0x02, 0xE5); // MOV A, direct
-        // // Read reg A
-        // self.cmd_unk_48(0x83);
-        // let res = self.cmd_get_byte();
-        // println!("res is 0x{res:X}");
-        // assert_eq!(res, src);
-
-        let mut file = std::fs::File::create("dump_test.bin").unwrap();
-
-        for i in 0..=15u16 {
-            use std::io::Write;
-            let i_bytes = i.to_le_bytes();
-            self.cmd_opcode(i_bytes[0], i_bytes[1], 0x90); // MOV DPTR, #data16
-            self.cmd_opcode(0x00, 0x00, 0x74); // MOV A, #data
-            self.cmd_opcode(0x00, 0x00, 0x93); // MOVX @DPTR, A
-            self.cmd_unk_48(0x83); // Read reg A
-            let res = self.cmd_get_byte();
-            println!("res is 0x{res:X}");
-            file.write_all(&[res]).expect("Failed to write");
-        }
-
-        self.cmd_unk_post1();
-        self.sleep_ms(15);
-
-        self.cmd_unk_post2();
+        self.cmd_post2();
         self.sleep_ms(15);
     }
 }

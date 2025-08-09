@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
-use sonixflash::firmware::load_firmware;
+use sonixflash::firmware::Firmware;
 use sonixflash::flasher::{Flasher, RomBank};
 use sonixflash::transport::{ResetType, SerialPortTransport};
 use std::io::Write;
@@ -181,33 +181,23 @@ fn main() {
             no_verify,
         } => {
             log::info!("Opening {path}...");
-            let mut data_write = load_firmware(path);
-            data_write.resize(data_write.len().next_multiple_of(page_size as usize), 0xFF);
+            let firmware = Firmware::from_file(path, page_size.into());
 
             if !no_erase {
                 log::info!("Erasing flash...");
                 flasher.erase_flash();
             }
 
-            log::info!("Writing {} bytes of flash...", data_write.len());
-            let bar = ProgressBar::new(data_write.len() as _);
-            flasher.write_flash(&data_write, page_size, &|x| bar.inc(x));
+            log::info!("Writing {} bytes of flash...", firmware.len());
+            let bar = ProgressBar::new(firmware.len() as _);
+            flasher.write_flash(&firmware, &|x| bar.inc(x));
             bar.finish();
 
             if !no_verify {
                 log::info!("Verifying write...");
-                let mut data_verify = vec![0; data_write.len()];
-                let bar = ProgressBar::new(data_verify.len() as _);
-                flasher.read_flash(0, &mut data_verify, &|x| bar.inc(x));
+                let bar = ProgressBar::new(firmware.len() as _);
+                flasher.verify_flash(&firmware, &|x| bar.inc(x));
                 bar.finish();
-                let verify_errors: Vec<_> = std::iter::zip(data_write, data_verify)
-                    .enumerate()
-                    .filter(|(_, (x, y))| x != y)
-                    .map(|(i, _)| i)
-                    .collect();
-                if !verify_errors.is_empty() {
-                    log::error!("Verify error! Mismatched offsets are: {verify_errors:08X?}");
-                }
             }
         }
         Commands::Erase => {

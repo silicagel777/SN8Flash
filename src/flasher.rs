@@ -1,4 +1,4 @@
-use crate::transport::Transport;
+use crate::{firmware::Firmware, transport::Transport};
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
@@ -30,21 +30,25 @@ pub enum RomBank {
     Boot = 1,
 }
 
-#[derive(getset::Getters, getset::Setters)]
+#[derive(gset::Getset)]
 pub struct Flasher {
     // Inner fields
     transport: Box<dyn Transport>,
 
-    #[getset(get = "pub with_prefix", set = "pub")]
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
     reset_duration_ms: u64,
 
-    #[getset(get = "pub with_prefix", set = "pub")]
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
     connect_duration_us: u64,
 
-    #[getset(get = "pub with_prefix", set = "pub")]
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
     rom_bank: RomBank,
 
-    #[getset(get = "pub with_prefix", set = "pub")]
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
     dangerous_allow_write_non_main_bank: bool,
 }
 
@@ -348,12 +352,9 @@ impl Flasher {
         self.sleep_ms(15);
     }
 
-    pub fn write_flash(&mut self, data: &[u8], page_size: u8, progress: &dyn Fn(u64)) {
+    pub fn write_flash(&mut self, firmware: &Firmware, progress: &dyn Fn(u64)) {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
             panic!("Writing to a non-main ROM bank is not allowed");
-        }
-        if data.len() % (page_size as usize) != 0 {
-            panic!("Data length is not divisble by page size");
         }
 
         self.cmd_pre1();
@@ -365,14 +366,51 @@ impl Flasher {
         let old_rom_bank = self.cmd_get_rom_bank();
         self.cmd_set_rom_bank(self.rom_bank as u8);
 
-        for (page, data) in data.chunks(page_size as usize).enumerate() {
-            self.cmd_write_page(page, data);
-            self.sleep_ms(5);
+        for section in firmware.sections() {
+            for (i, data) in section.data().chunks(firmware.page_size()).enumerate() {
+                let page = section.offset() / firmware.page_size() + i;
+                self.cmd_write_page(page, data);
+                self.sleep_ms(5);
 
-            self.cmd_check_write_finished();
-            self.sleep_ms(5);
+                self.cmd_check_write_finished();
+                self.sleep_ms(5);
 
-            progress(data.len() as _);
+                progress(data.len() as _);
+            }
+        }
+
+        self.cmd_set_rom_bank(old_rom_bank);
+
+        self.cmd_post1();
+        self.sleep_ms(15);
+
+        self.cmd_post2();
+        self.sleep_ms(15);
+    }
+
+    pub fn verify_flash(&mut self, firmware: &Firmware, progress: &dyn Fn(u64)) {
+        self.cmd_pre1();
+        self.sleep_ms(15);
+
+        self.cmd_pre2();
+        self.sleep_ms(15);
+
+        let old_rom_bank = self.cmd_get_rom_bank();
+        self.cmd_set_rom_bank(self.rom_bank as u8);
+
+        let mut errors: Vec<usize> = Vec::new();
+        for section in firmware.sections() {
+            let mut verify = vec![0; section.len()];
+            self.cmd_read(section.offset() as u16, verify.as_mut_slice(), progress);
+            let errors_it = std::iter::zip(section.data(), verify)
+                .enumerate()
+                .filter(|(_, (x, y))| *x != y)
+                .map(|(j, _)| j + section.offset());
+            errors.extend(errors_it);
+        }
+
+        if !errors.is_empty() {
+            log::error!("Verify error! Mismatched offsets are: {errors:08X?}");
         }
 
         self.cmd_set_rom_bank(old_rom_bank);

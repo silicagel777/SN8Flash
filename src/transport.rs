@@ -12,16 +12,18 @@ pub enum ResetType {
     Dtr,
 }
 
-#[derive(getset::Getters, getset::Setters)]
+#[derive(gset::Getset)]
 pub struct SerialPortTransport {
     port: Box<dyn serialport::SerialPort>,
     batch_counter: u64,
     batch_data: Vec<u8>,
 
-    #[getset(get = "pub with_prefix", set = "pub")]
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
     reset_type: ResetType,
 
-    #[getset(get = "pub with_prefix", set = "pub")]
+    #[getset(get_copy, vis = "pub")]
+    #[getset(set, vis = "pub")]
     reset_invert: bool,
 }
 

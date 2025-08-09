@@ -31,8 +31,7 @@ struct Cli {
     #[arg(short = 'p', long)]
     port: String,
 
-    /// Reset signal type. RTS is recommended, as DTR is toggled on serial port
-    /// open, resulting in extra reset
+    /// Reset signal type
     #[arg(short = 'r', long, default_value = "rts")]
     reset_type: ArgResetType,
 

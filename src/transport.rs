@@ -29,6 +29,7 @@ impl SerialPortTransport {
     pub fn new(port: &str) -> Result<Self> {
         let port = serialport::new(port, 750_000)
             .timeout(std::time::Duration::from_millis(50))
+            .dtr_on_open(false)
             .open()?;
 
         Ok(SerialPortTransport {

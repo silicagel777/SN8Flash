@@ -36,6 +36,13 @@ struct Cli {
     #[arg(short = 'r', long, default_value = "rts")]
     reset_type: ArgResetType,
 
+    /// Reset-less mode, for adapters without RTS/DTR signals
+    ///
+    /// You will have to reset your chip manually, and successful connection
+    /// may take a few tries
+    #[arg(long, default_value_t = false)]
+    reset_less: bool,
+
     /// Do not reset chip after running a command
     #[arg(long, default_value_t = false)]
     no_final_reset: bool,
@@ -186,7 +193,15 @@ fn run(args: &Cli) -> anyhow::Result<()> {
     flasher.set_dangerous_allow_write_non_main_bank(args.dangerous_allow_write_non_main_bank);
 
     log::info!("Connecting...");
-    let chip_id = flasher.connect()?;
+    let chip_id = if args.reset_less {
+        log::warn!("Reset-less mode enabled!");
+        log::warn!("If the chip is not in programming mode, reset it NOW");
+        log::warn!("You may need a few tries for connection to succeed");
+        log::warn!("Waiting...");
+        flasher.connect_manual()?
+    } else {
+        flasher.connect()?
+    };
     log::info!("Chip ID is {chip_id:#X}");
 
     match args.command {

@@ -1,9 +1,12 @@
 use crate::error::{Error, Result};
+use std::time::Duration;
 
 pub trait Transport {
     fn write(&mut self, data: &[u8]) -> Result<()>;
     fn read(&mut self, data: &mut [u8]) -> Result<()>;
     fn set_reset(&mut self, level: bool) -> Result<()>;
+    fn set_timeout(&mut self, value: Duration) -> Result<()>;
+    fn timeout(&self) -> Duration;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -28,7 +31,7 @@ pub struct SerialPortTransport {
 impl SerialPortTransport {
     pub fn new(path: &str) -> Result<Self> {
         let port = serialport::new(path, 750_000)
-            .timeout(std::time::Duration::from_millis(50))
+            .timeout(Duration::from_millis(50))
             .dtr_on_open(false)
             .open()?;
 
@@ -55,13 +58,17 @@ impl Transport for SerialPortTransport {
         self.port.write_all(data)?;
         self.port.flush()?;
         let mut res = [0];
+        let mut mismatch = false;
         for byte in data {
             self.port
                 .read_exact(&mut res)
                 .map_err(Error::WriteReadFailed)?;
             if *byte != res[0] {
-                return Err(Error::WriteReadMismatch);
+                mismatch = true;
             }
+        }
+        if mismatch {
+            return Err(Error::WriteReadMismatch);
         }
         log::trace!("Written {} bytes", data.len());
         Ok(())
@@ -91,5 +98,13 @@ impl Transport for SerialPortTransport {
         }
         log::trace!("Set reset to {level}");
         Ok(())
+    }
+
+    fn set_timeout(&mut self, value: Duration) -> Result<()> {
+        Ok(self.port.set_timeout(value)?)
+    }
+
+    fn timeout(&self) -> Duration {
+        self.port.timeout()
     }
 }

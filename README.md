@@ -1,6 +1,6 @@
 # SonixFlash
 
-A command-line tool for flashing Sonix SN8F5xxx family of 8051-compatible microcontrollers with cheap USB-UART adapters
+A command-line tool for flashing Sonix SN8F5xxx family of 8051-compatible microcontrollers using cheap USB-UART adapters
 
 ## Features
 
@@ -20,13 +20,13 @@ Currently tested with SN8F5702 series, but should work with many other chips in 
 
 ## Required hardware
 
-SonixFlash uses cheap USB-UART dongles. Unfortunately, SN8F5xxx microcontrollers would only accept connections for a few milliseconds after reset, so a dongle with an exposed RTS or DTR signal is required for a hardware reset circuit.
+SonixFlash uses cheap USB-UART dongles. Unfortunately, SN8F5xxx microcontrollers would only accept connections for a few milliseconds after reset, so a dongle with an exposed RTS or DTR signal is required for a hardware reset circuit. You may also use reset-less mode for dongles without RTS/DTR signals and reset the chip manually, but this mode is not reliable: a proper reset circuit is the best option.
 
-I recommend this [CH343-based adapter](https://aliexpress.com/item/1005004399796277.html), but the others should work as well.
+I recommend this [CH343-based adapter](https://aliexpress.com/item/1005004399796277.html), but others should work as well:
 
 <p><img alt="CH343 USB-UART dongle" src="docs/ch343-dongle.jpg" width=75% height=75%></p>
 
-Here is the connection circuit:
+And here is the connection circuit:
 
 <p><img alt="Connection circuit" src="docs/sonixflash-connection.png"></p>
 
@@ -50,11 +50,12 @@ Alternatively, you can build SonixFlash from source. Install a recent [Rust tool
   - `<PORT>` is something like `COM7` for Windows or something like `/dev/ttyACM0` for Linux.
   - Default reset pin is RTS, you can switch to DTR by using `--reset-type dtr` global parameter.
   - You can also invert reset pin by using `--reset-invert` global parameter.
+  - If your adapter does not have RTS/DTR outputs, use `--reset-less` global parameter to enable reset-less mode. SonixFlash will wait for you to reset the chip manually. This mode is not very reliable and may take a few tries to work.
 
 ### Read flash
 - Run `sonixflash --port <PORT> read --size <FLASH_SIZE>` to read flash.
     - Add `--offset` to read with offset
-    - Add `--file <FILE_NAME>` to dump to a file instead of pretyy-printing. Set `<FILE_NAME>` to `-` to dump to stdout.
+    - Add `--file <FILE_NAME>` to dump to a file instead of pretty-printing. Set `<FILE_NAME>` to `-` to dump to stdout.
     - Empty chips read as all `0xFF`s.
     - Read-protected chips read as all `0x00`s, you'll have to erase them to unprotect.
     - You can use `--rom-bank boot` global parameter to read from hidden boot parameter area instead of main flash.

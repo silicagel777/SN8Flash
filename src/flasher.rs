@@ -3,6 +3,7 @@ use crate::{
     firmware::Firmware,
     transport::Transport,
 };
+use std::time::Duration;
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -81,11 +82,11 @@ impl Flasher {
     }
 
     fn sleep_ms(&self, millis: u64) {
-        std::thread::sleep(std::time::Duration::from_millis(millis));
+        std::thread::sleep(Duration::from_millis(millis));
     }
 
     fn sleep_us(&self, micros: u64) {
-        std::thread::sleep(std::time::Duration::from_micros(micros));
+        std::thread::sleep(Duration::from_micros(micros));
     }
 
     fn write_batch_begin(&mut self) {
@@ -366,6 +367,24 @@ impl Flasher {
         self.sleep_us(self.connect_duration_us);
         self.cmd_connect()?;
         self.connected = true;
+        self.chip_id()
+    }
+
+    pub fn connect_manual(&mut self) -> Result<u32> {
+        let old_timeout = self.transport.timeout();
+        self.transport.set_timeout(Duration::from_micros(500))?;
+        loop {
+            match self.cmd_connect() {
+                Ok(_) => break,
+                Err(Error::HandshakeError(_)) => {}
+                Err(Error::WriteReadMismatch) => {}
+                Err(Error::WriteReadFailed(err)) if err.kind() == std::io::ErrorKind::TimedOut => {}
+                Err(Error::IOError(err)) if err.kind() == std::io::ErrorKind::TimedOut => {}
+                Err(err) => return Err(err),
+            }
+        }
+        self.connected = true;
+        self.transport.set_timeout(old_timeout)?;
         self.chip_id()
     }
 

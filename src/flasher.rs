@@ -26,11 +26,7 @@ enum Sfr {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum RomBank {
-    /// Main flash memory
     Main = 0,
-    /// Some sort of boot parameter area. I've accidentally wiped it on
-    /// SN8F570212, and the chip would no longer leave the built-in bootloader
-    /// until I've restored it back. Fun stuff!
     Boot = 1,
 }
 

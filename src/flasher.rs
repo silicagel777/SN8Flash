@@ -1,7 +1,5 @@
 use crate::transport::Transport;
 
-const PAGE_SIZE: u8 = 32;
-
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
 enum Sfr {
@@ -52,6 +50,9 @@ pub struct Flasher {
 
     #[getset(get = "pub with_prefix", set = "pub")]
     dangerous_allow_write_non_main_bank: bool,
+
+    #[getset(get = "pub with_prefix", set = "pub")]
+    page_size: usize,
 }
 
 impl Flasher {
@@ -64,6 +65,7 @@ impl Flasher {
             reset_duration_ms: 10,
             connect_duration_us: 1666,
             dangerous_allow_write_non_main_bank: false,
+            page_size: 0x20,
         }
     }
 
@@ -273,7 +275,7 @@ impl Flasher {
     fn cmd_write_page(&mut self, page: usize, data: &[u8]) {
         assert_eq!(
             data.len(),
-            PAGE_SIZE as usize,
+            self.page_size,
             "Data length is not equal to page size"
         );
         for (i, byte) in data.iter().enumerate() {
@@ -372,8 +374,8 @@ impl Flasher {
         let old_rom_bank = self.cmd_get_rom_bank();
         self.cmd_set_rom_bank(self.rom_bank as u8);
 
-        let page_count = data.len() / PAGE_SIZE as usize;
-        for (page, data) in data.chunks(PAGE_SIZE as usize).enumerate() {
+        let page_count = data.len() / self.page_size;
+        for (page, data) in data.chunks(self.page_size).enumerate() {
             self.cmd_write_page(page, data);
             self.sleep_ms(5);
 

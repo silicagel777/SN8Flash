@@ -50,6 +50,10 @@ struct CommandArgs {
     /// Custom reset duration in microseconds (for debugging)
     #[arg(long, default_value_t = 1666)]
     connect_duration: u64,
+
+    /// Flash page size for writing (check datasheet)
+    #[arg(long, default_value_t = 0x20)]
+    page_size: usize,
 }
 
 fn main() {
@@ -75,6 +79,7 @@ fn main() {
     let mut flasher = Flasher::new(transport);
     flasher.set_reset_duration_ms(args.reset_duration);
     flasher.set_connect_duration_us(args.connect_duration);
+    flasher.set_page_size(args.page_size);
     flasher.set_rom_bank(RomBank::Main);
 
     log::info!("Connecting...");

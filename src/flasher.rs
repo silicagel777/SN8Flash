@@ -5,7 +5,7 @@ pub enum ResetType {
     Dtr,
 }
 
-pub struct SonixFlash {
+pub struct Flasher {
     port: Box<dyn serialport::SerialPort>,
     reset_type: ResetType,
     reset_invert: bool,
@@ -13,7 +13,7 @@ pub struct SonixFlash {
     connect_duration_us: u64, // 1666us is recommended
 }
 
-impl SonixFlash {
+impl Flasher {
     // Common stuff ===========================================================
 
     pub fn new(
@@ -27,7 +27,7 @@ impl SonixFlash {
             .timeout(std::time::Duration::from_millis(50))
             .open()
             .expect("Failed to open serial port");
-        SonixFlash {
+        Flasher {
             port,
             reset_type,
             reset_invert,

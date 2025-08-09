@@ -1,16 +1,24 @@
 use clap::{Parser, ValueEnum};
 use indicatif::ProgressBar;
+use sonixflash::flasher::{Flasher, ResetType};
 use std::{
     fs::File,
     io::{Read, Write},
 };
 
-mod sonixflash;
-
 #[derive(ValueEnum, Clone, Debug)]
 enum CommandResetType {
     Rts,
     Dtr,
+}
+
+impl From<CommandResetType> for ResetType {
+    fn from(value: CommandResetType) -> Self {
+        match value {
+            CommandResetType::Rts => ResetType::Rts,
+            CommandResetType::Dtr => ResetType::Dtr,
+        }
+    }
 }
 
 /// Sonix SN8F flash tool
@@ -23,40 +31,33 @@ struct CommandArgs {
 
     /// Reset signal type. RTS is recommended, as DTR is toggled on serial port
     /// open, resulting in extra reset
-    #[arg(short, long, default_value = "rts")]
+    #[arg(long, default_value = "rts")]
     reset_type: CommandResetType,
 
     /// Invert reset pin
-    #[arg(short, long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     reset_invert: bool,
 
     /// Custom reset duration in milliseconds (for debugging)
-    #[arg(short, long, default_value_t = 10)]
+    #[arg(long, default_value_t = 10)]
     reset_duration: u64,
 
     /// Custom reset duration in microseconds (for debugging)
-    #[arg(short, long, default_value_t = 1666)]
+    #[arg(long, default_value_t = 1666)]
     connect_duration: u64,
 }
 
 fn main() {
     let args = CommandArgs::parse();
     let port = &args.port;
-    let reset_type = match args.reset_type {
-        CommandResetType::Rts => sonixflash::ResetType::Rts,
-        CommandResetType::Dtr => sonixflash::ResetType::Dtr,
-    };
-    let reset_invert = args.reset_invert;
-    let reset_duration_ms = args.reset_duration;
-    let connect_duration_us = args.connect_duration;
 
     println!("Opening port {port}...");
-    let mut sf = sonixflash::SonixFlash::new(
+    let mut sf = Flasher::new(
         port,
-        reset_type,
-        reset_invert,
-        reset_duration_ms,
-        connect_duration_us,
+        args.reset_type.into(),
+        args.reset_invert,
+        args.reset_duration,
+        args.connect_duration,
     );
 
     println!("Connecting...");

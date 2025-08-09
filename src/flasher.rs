@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum Sfr {
     /// Data pointer 0 low byte register
     Dpl = 0x82,
@@ -28,7 +28,7 @@ enum Sfr {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RomBank {
     Main = 0,
     Boot = 1,
@@ -135,7 +135,7 @@ impl Flasher {
         let mut res = [0; 4];
         self.read(&mut res)?;
         if res != [0xFF; 4] {
-            return Err(Error::HandshakeError);
+            return Err(Error::HandshakeError(res));
         }
         Ok(())
     }
@@ -285,14 +285,14 @@ impl Flasher {
         self.cmd_unk_48(0x81)?;
         let res = self.cmd_get_u16()?;
         if res != 0x015D {
-            return Err(Error::WriteCheckError);
+            return Err(Error::WriteCheckError(res));
         }
         Ok(())
     }
 
     fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress: &dyn Fn(u64)) -> Result<()> {
         // Context save
-        let old_8e_val = self.cmd_read_sfr(Sfr::Ckon)?;
+        let old_ckon_val = self.cmd_read_sfr(Sfr::Ckon)?;
         // TODO: CKON only exists for some MCUs, better avoid setting it?
         self.cmd_write_sfr(Sfr::Ckon, 0x71)?;
         let old_dps_val = self.cmd_read_sfr(Sfr::Dps)?;
@@ -317,7 +317,7 @@ impl Flasher {
         self.cmd_unk_48(0x00)?;
 
         // Context restore
-        self.cmd_write_sfr(Sfr::Ckon, old_8e_val)?;
+        self.cmd_write_sfr(Sfr::Ckon, old_ckon_val)?;
         self.cmd_write_sfr(Sfr::Dps, old_dps_val)?;
         self.cmd_write_sfr(Sfr::Dpc, old_dpc_val)?;
         self.cmd_write_sfr(Sfr::Dpl, old_dpl_val)?;
@@ -402,7 +402,7 @@ impl Flasher {
 
     pub fn erase_flash(&mut self) -> Result<()> {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
-            panic!("Erasing a non-main ROM bank is not allowed");
+            return Err(Error::NonMainBankErase);
         }
 
         self.cmd_pre1()?;
@@ -436,7 +436,7 @@ impl Flasher {
 
     pub fn write_flash(&mut self, firmware: &Firmware, progress: &dyn Fn(u64)) -> Result<()> {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
-            panic!("Writing to a non-main ROM bank is not allowed");
+            return Err(Error::NonMainBankErase);
         }
 
         self.cmd_pre1()?;
@@ -451,6 +451,7 @@ impl Flasher {
         for section in firmware.sections() {
             for (i, data) in section.data().chunks(firmware.page_size()).enumerate() {
                 let page = section.offset() / firmware.page_size() + i;
+                log::debug!("Writing page {}, size {}", page, firmware.page_size());
                 self.cmd_write_page(page, data)?;
                 self.sleep_ms(5);
 
@@ -512,7 +513,10 @@ impl Flasher {
 impl Drop for Flasher {
     fn drop(&mut self) {
         if self.final_reset && self.connected {
-            let _ = self.reset();
+            log::debug!("Running final reset");
+            if let Err(err) = self.reset() {
+                log::debug!("Error running final reset: {:?}", err);
+            }
         }
     }
 }

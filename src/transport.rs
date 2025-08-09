@@ -26,11 +26,20 @@ pub struct SerialPortTransport {
 }
 
 impl SerialPortTransport {
-    pub fn new(port: &str) -> Result<Self> {
-        let port = serialport::new(port, 750_000)
+    pub fn new(path: &str) -> Result<Self> {
+        let port = serialport::new(path, 750_000)
             .timeout(std::time::Duration::from_millis(50))
             .dtr_on_open(false)
             .open()?;
+
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "Opened serial port {} with baud rate {} and timeout {:?}",
+                port.name().unwrap_or("<unknown>".to_string()),
+                port.baud_rate().unwrap_or_default(),
+                port.timeout(),
+            );
+        }
 
         Ok(SerialPortTransport {
             port,
@@ -80,6 +89,7 @@ impl Transport for SerialPortTransport {
                 self.port.write_data_terminal_ready(level)?;
             }
         }
+        log::trace!("Set reset to {level}");
         Ok(())
     }
 }

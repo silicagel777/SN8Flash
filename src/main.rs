@@ -94,7 +94,8 @@ enum Commands {
         #[arg(short = 'o', long, default_value_t = 0)]
         offset: u16,
 
-        /// Output file path (raw binary), use "-" for stdout
+        /// Output file path (raw binary), use "-" for stdout dump or omit
+        /// for pretty-print
         #[arg(short = 'f', long = "file")]
         path: Option<String>,
     },
@@ -178,6 +179,7 @@ fn run(args: Cli) -> anyhow::Result<()> {
                     println!("{}", nu_pretty_hex::config_hex(&data_read, cfg));
                 }
                 Some(path) if path == "-" => {
+                    log::info!("Dumping to stdout...");
                     std::io::stdout()
                         .write_all(&data_read)
                         .context("Failed to write to standard output")?;
@@ -241,7 +243,11 @@ fn main() -> ExitCode {
     .expect("Failed to initialize logger");
 
     if let Err(err) = run(args) {
-        log::error!("{err:#}");
+        if log::log_enabled!(log::Level::Debug) {
+            log::error!("{err:?}")
+        } else {
+            log::error!("{err:#}");
+        }
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

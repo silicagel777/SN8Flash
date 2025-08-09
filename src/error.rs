@@ -14,11 +14,17 @@ pub enum Error {
     #[error("Write/read data mismatch, check RX+TX connection")]
     WriteReadMismatch,
 
-    #[error("Invalid handshake response")]
-    HandshakeError,
+    #[error("Invalid handshake response {0:X?}")]
+    HandshakeError([u8; 4]),
 
-    #[error("Invalid write check result")]
-    WriteCheckError,
+    #[error("Invalid write check result {0:X}")]
+    WriteCheckError(u16),
+
+    #[error("Writing to a non-main ROM bank is not allowed")]
+    NonMainBankWrite,
+
+    #[error("Erasing a non-main ROM bank is not allowed")]
+    NonMainBankErase,
 
     #[error("Verify mismatch at offsets {0:X?}")]
     VerifyMismatch(Vec<usize>),

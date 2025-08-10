@@ -6,7 +6,7 @@ pub trait Transport {
     fn read(&mut self, data: &mut [u8]) -> Result<()>;
     fn set_reset(&mut self, level: bool) -> Result<()>;
     fn set_timeout(&mut self, value: Duration) -> Result<()>;
-    fn timeout(&self) -> Duration;
+    fn timeout(&self) -> Result<Duration>;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub enum ResetType {
 
 #[derive(gset::Getset)]
 pub struct SerialPortTransport {
-    port: Box<dyn serialport::SerialPort>,
+    port: serial2::SerialPort,
 
     #[getset(get_copy, vis = "pub")]
     #[getset(set, vis = "pub")]
@@ -30,17 +30,18 @@ pub struct SerialPortTransport {
 
 impl SerialPortTransport {
     pub fn new(path: &str) -> Result<Self> {
-        let port = serialport::new(path, 750_000)
-            .timeout(Duration::from_millis(50))
-            .dtr_on_open(false)
-            .open()?;
+        let mut port = serial2::SerialPort::open(path, 750_000)?;
+        port.set_read_timeout(Duration::from_millis(50))?;
+        port.set_dtr(false)?;
 
         if log::log_enabled!(log::Level::Debug) {
             log::debug!(
                 "Opened serial port {} with baud rate {} and timeout {:?}",
-                port.name().unwrap_or_else(|| "<unknown>".to_string()),
-                port.baud_rate().unwrap_or_default(),
-                port.timeout(),
+                path,
+                port.get_configuration()
+                    .and_then(|conf| conf.get_baud_rate())
+                    .unwrap_or_default(),
+                port.get_read_timeout().unwrap_or_default(),
             );
         }
 
@@ -90,10 +91,10 @@ impl Transport for SerialPortTransport {
         }
         match self.reset_type {
             ResetType::Rts => {
-                self.port.write_request_to_send(level)?;
+                self.port.set_rts(level)?;
             }
             ResetType::Dtr => {
-                self.port.write_data_terminal_ready(level)?;
+                self.port.set_dtr(level)?;
             }
         }
         log::trace!("Set reset to {level}");
@@ -101,10 +102,10 @@ impl Transport for SerialPortTransport {
     }
 
     fn set_timeout(&mut self, value: Duration) -> Result<()> {
-        Ok(self.port.set_timeout(value)?)
+        Ok(self.port.set_read_timeout(value)?)
     }
 
-    fn timeout(&self) -> Duration {
-        self.port.timeout()
+    fn timeout(&self) -> Result<Duration> {
+        Ok(self.port.get_read_timeout()?)
     }
 }

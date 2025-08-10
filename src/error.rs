@@ -2,9 +2,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Serial port error")]
-    SerialError(#[from] serialport::Error),
-
     #[error("IO error")]
     IOError(#[from] std::io::Error),
 

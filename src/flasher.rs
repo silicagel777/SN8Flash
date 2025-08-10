@@ -371,8 +371,8 @@ impl Flasher {
     }
 
     pub fn connect_manual(&mut self) -> Result<u32> {
-        let old_timeout = self.transport.timeout();
-        self.transport.set_timeout(Duration::from_micros(5000))?;
+        let old_timeout = self.transport.timeout()?;
+        self.transport.set_timeout(Duration::from_millis(5))?;
         loop {
             match self.cmd_connect() {
                 Ok(_) => break,

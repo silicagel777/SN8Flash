@@ -42,7 +42,7 @@ Alternatively, you can build SonixFlash from source. Install a recent [Rust tool
 
 - Run `sonixflash --help` to see all available commands and global parameters
 - Run `sonixflash <command> --help` to see parameters for chosen command
-- Global parameters go before command name (`--port` is a global parameter), command-specific parameter go after command name.
+- Global parameters go before command name (`--port` is a global parameter), command-specific parameters go after command name.
 
 ### Chip ID / connection check
 

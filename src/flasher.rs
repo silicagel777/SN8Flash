@@ -40,7 +40,7 @@ pub struct Flasher {
     // Inner fields
     transport: Box<dyn Transport>,
     connected: bool,
-    batch_counter: u64,
+    batch: bool,
     batch_data: Vec<u8>,
 
     #[getset(get_copy, vis = "pub")]
@@ -71,7 +71,7 @@ impl Flasher {
         Self {
             transport,
             connected: false,
-            batch_counter: 0,
+            batch: false,
             batch_data: Vec::new(),
             final_reset: true,
             rom_bank: RomBank::Main,
@@ -89,21 +89,17 @@ impl Flasher {
         std::thread::sleep(Duration::from_micros(micros));
     }
 
-    fn write_batch_begin(&mut self) {
-        self.batch_counter += 1;
-    }
-
-    fn write_batch_commit(&mut self) -> Result<()> {
-        self.batch_counter -= 1;
-        if self.batch_counter == 0 {
-            let batch_data = std::mem::take(&mut self.batch_data);
-            self.write(&batch_data)?;
-        }
-        Ok(())
+    fn write_batch(&mut self, callback: &dyn Fn(&mut Self) -> Result<()>) -> Result<()> {
+        self.batch = true;
+        let callback_res = callback(self);
+        self.batch = false;
+        let batch_data = std::mem::take(&mut self.batch_data);
+        callback_res?;
+        self.write(&batch_data)
     }
 
     fn write(&mut self, data: &[u8]) -> Result<()> {
-        if self.batch_counter > 0 {
+        if self.batch {
             self.batch_data.extend(data);
         } else {
             self.transport.write(data)?;
@@ -112,11 +108,23 @@ impl Flasher {
     }
 
     fn read(&mut self, data: &mut [u8]) -> Result<()> {
-        if self.batch_counter != 0 {
+        if self.batch {
             panic!("Can't read during write batch")
         }
         self.transport.read(data)?;
         Ok(())
+    }
+
+    fn with_custom_timeout(
+        &mut self,
+        timeout: Duration,
+        callback: &dyn Fn(&mut Self) -> Result<()>,
+    ) -> Result<()> {
+        let old_timeout = self.transport.timeout()?;
+        self.transport.set_timeout(timeout)?;
+        let callback_res = callback(self);
+        self.transport.set_timeout(old_timeout)?;
+        callback_res
     }
 
     // Low-level commands =====================================================
@@ -340,16 +348,16 @@ impl Flasher {
     }
 
     fn cmd_write_page(&mut self, page: usize, data: &[u8]) -> Result<()> {
-        self.write_batch_begin();
-        for (i, byte) in data.iter().enumerate() {
-            self.cmd_write_ram(i as u8, *byte)?;
-        }
-        self.cmd_write_sfr(Sfr::Peram, 0x00)?;
-        self.cmd_write_sfr(Sfr::Peromh, (page / 8) as u8)?;
-        self.cmd_write_sfr(Sfr::Peroml, ((page % 8) as u8) << 5 | 0x0A)?;
-        self.cmd_write_sfr(Sfr::Pecmd, 0x5A)?;
-        self.write_batch_commit()?;
-        Ok(())
+        self.write_batch(&|this| {
+            for (i, byte) in data.iter().enumerate() {
+                this.cmd_write_ram(i as u8, *byte)?;
+            }
+            this.cmd_write_sfr(Sfr::Peram, 0x00)?;
+            this.cmd_write_sfr(Sfr::Peromh, (page / 8) as u8)?;
+            this.cmd_write_sfr(Sfr::Peroml, ((page % 8) as u8) << 5 | 0x0A)?;
+            this.cmd_write_sfr(Sfr::Pecmd, 0x5A)?;
+            Ok(())
+        })
     }
 
     // High-level commands ====================================================
@@ -371,20 +379,20 @@ impl Flasher {
     }
 
     pub fn connect_manual(&mut self) -> Result<u32> {
-        let old_timeout = self.transport.timeout()?;
-        self.transport.set_timeout(Duration::from_millis(5))?;
-        loop {
-            match self.cmd_connect() {
-                Ok(_) => break,
-                Err(Error::HandshakeError(_)) => {}
-                Err(Error::WriteReadMismatch) => {}
-                Err(Error::WriteReadFailed(err)) if err.kind() == std::io::ErrorKind::TimedOut => {}
-                Err(Error::IOError(err)) if err.kind() == std::io::ErrorKind::TimedOut => {}
-                Err(err) => return Err(err),
+        self.with_custom_timeout(Duration::from_millis(5), &|this| {
+            loop {
+                match this.cmd_connect() {
+                    Ok(_) => break Ok(()),
+                    Err(Error::HandshakeError(_)) => {}
+                    Err(Error::WriteReadMismatch) => {}
+                    Err(Error::WriteReadFailed(err))
+                        if err.kind() == std::io::ErrorKind::TimedOut => {}
+                    Err(Error::IOError(err)) if err.kind() == std::io::ErrorKind::TimedOut => {}
+                    Err(err) => break Err(err),
+                }
             }
-        }
+        })?;
         self.connected = true;
-        self.transport.set_timeout(old_timeout)?;
         self.chip_id()
     }
 

@@ -1,4 +1,4 @@
-# SonixFlash
+# SN8Flash
 
 A command-line tool for flashing Sonix SN8F5xxx family of 8051-compatible microcontrollers using cheap USB-UART adapters
 
@@ -20,7 +20,7 @@ Currently tested with SN8F5702 series, but should work with many other chips in 
 
 ## Required hardware
 
-SonixFlash uses cheap USB-UART dongles. Unfortunately, SN8F5xxx microcontrollers would only accept connections for a few milliseconds after reset, so a dongle with an exposed RTS or DTR signal is required for a hardware reset circuit. You may also use reset-less mode for dongles without RTS/DTR signals and reset the chip manually, but this mode is not reliable: a proper reset circuit is the best option.
+sn8flash uses cheap USB-UART dongles. Unfortunately, SN8F5xxx microcontrollers would only accept connections for a few milliseconds after reset, so a dongle with an exposed RTS or DTR signal is required for a hardware reset circuit. You may also use reset-less mode for dongles without RTS/DTR signals and reset the chip manually, but this mode is not reliable: a proper reset circuit is the best option.
 
 I recommend this [CH343-based adapter](https://aliexpress.com/item/1005004399796277.html), but others should work as well:
 
@@ -28,32 +28,32 @@ I recommend this [CH343-based adapter](https://aliexpress.com/item/1005004399796
 
 And here is the connection circuit:
 
-<p><img alt="Connection circuit" src="docs/sonixflash-connection.png"></p>
+<p><img alt="Connection circuit" src="docs/sn8flash-connection.png"></p>
 
 ## Installation
 
-Grab a binary from the [Releases](https://github.com/silicagel777/SonixFlash/releases) section and you are ready to go! You may also want to add it to your `PATH` environment variable.
+Grab a binary from the [Releases](https://github.com/silicagel777/sn8flash/releases) section and you are ready to go! You may also want to add it to your `PATH` environment variable.
 
-Alternatively, you can build SonixFlash from source. Install a recent [Rust toolchain](https://www.rust-lang.org/tools/install), then run `cargo build --release`.
+Alternatively, you can build sn8flash from source. Install a recent [Rust toolchain](https://www.rust-lang.org/tools/install), then run `cargo build --release`.
 
 ## Usage examples
 
 ### Getting help
 
-- Run `sonixflash --help` to see all available commands and global parameters
-- Run `sonixflash <command> --help` to see parameters for chosen command
+- Run `sn8flash --help` to see all available commands and global parameters
+- Run `sn8flash <command> --help` to see parameters for chosen command
 - Global parameters go before command name (`--port` is a global parameter), command-specific parameters go after command name.
 
 ### Chip ID / connection check
 
-- Run `sonixflash --port <PORT> chip-id` to read chip ID with the default connection settings
+- Run `sn8flash --port <PORT> chip-id` to read chip ID with the default connection settings
   - `<PORT>` is something like `COM7` for Windows or something like `/dev/ttyACM0` for Linux.
   - Default reset pin is RTS, you can switch to DTR by using `--reset-type dtr` global parameter.
   - You can also invert reset pin by using `--reset-invert` global parameter.
-  - If your adapter does not have RTS/DTR outputs, use `--reset-less` global parameter to enable reset-less mode. SonixFlash will wait for you to reset the chip manually. This mode is not very reliable and may take a few tries to work.
+  - If your adapter does not have RTS/DTR outputs, use `--reset-less` global parameter to enable reset-less mode. sn8flash will wait for you to reset the chip manually. This mode is not very reliable and may take a few tries to work.
 
 ### Read flash
-- Run `sonixflash --port <PORT> read --size <FLASH_SIZE>` to read flash.
+- Run `sn8flash --port <PORT> read --size <FLASH_SIZE>` to read flash.
     - Add `--offset` to read with offset
     - Add `--file <FILE_NAME>` to dump to a file instead of pretty-printing. Set `<FILE_NAME>` to `-` to dump to stdout.
     - Empty chips read as all `0xFF`s.
@@ -62,18 +62,18 @@ Alternatively, you can build SonixFlash from source. Install a recent [Rust tool
  
 ### Erase
 
-- Run `sonixflash --port <PORT> erase` to perform chip erase.
+- Run `sn8flash --port <PORT> erase` to perform chip erase.
 
 ### Write flash
 
-- Run `sonixflash --port <PORT> write --file <FILE_NAME>` to flash new firmware
+- Run `sn8flash --port <PORT> write --file <FILE_NAME>` to flash new firmware
     - Supported firmware formats are raw binary and Intel HEX (`*.hex`, `*.ihex`, `*.ihx`).
     - `write` also implies `erase` and `verify` by default. Use `--no-erase` or `--no-verify` to skip these steps.
     - You may have to set `--page-size <SIZE>` global parameter for firmware to be written correctly. The default page size is 32 bytes: this is the right value for most chips in the SN8F5xxx family, but some big ones use 64-byte pages. Check datasheet!
 
 ### Verify
 
-- Run `sonixflash --port <PORT> verify --file <FILE_NAME>` to verify written firmware.
+- Run `sn8flash --port <PORT> verify --file <FILE_NAME>` to verify written firmware.
     - Most parameters are the same as for `write`.
 
 ## Notes on the programming protocol
@@ -86,6 +86,6 @@ Alternatively, you can build SonixFlash from source. Install a recent [Rust tool
   - But there is also some fun undocumented stuff! For example, there are hidden registers deep at the end of XRAM that are used to switch flash pages.
 - There are at least two flash pages on these chips: main area and boot parameter area. The latter is interesting:
   - It is mostly undocumented, but some datasheets mention unique chip ID being stored there.
-  - It can be read, erased and written just like the main area. But if you erase it, the chip won't leave bootloader mode and will never proceed to the main program. Make backups! SonixFlash won't allow erasing or writing it until you set a special flag.
+  - It can be read, erased and written just like the main area. But if you erase it, the chip won't leave bootloader mode and will never proceed to the main program. Make backups! sn8flash won't allow erasing or writing it until you set a special flag.
   - Read protection does not affect boot parameter area.
   - The official "SN-Link ICP" software reads some values from the area, but I have no clue what it uses them for. It doesn't complain even if the area is completely wiped. Mystery everywhere!

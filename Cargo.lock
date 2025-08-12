@@ -463,8 +463,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "sonixflash"
-version = "1.0.0"
+name = "sn8flash"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "clap",

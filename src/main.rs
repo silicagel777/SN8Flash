@@ -1,9 +1,9 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
-use sonixflash::firmware::Firmware;
-use sonixflash::flasher::{Flasher, RomBank};
-use sonixflash::transport::{ResetType, SerialPortTransport};
+use sn8flash::firmware::Firmware;
+use sn8flash::flasher::{Flasher, RomBank};
+use sn8flash::transport::{ResetType, SerialPortTransport};
 use std::io::{Read, Write};
 use std::process::ExitCode;
 use structural_convert::StructuralConvert;
@@ -24,7 +24,7 @@ enum ArgRomBank {
     Boot,
 }
 
-/// Sonix SN8F flash tool
+/// Sonix SN8F5xxx flash tool
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {

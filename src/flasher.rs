@@ -463,7 +463,7 @@ impl Flasher {
 
     pub fn write_flash(&mut self, firmware: &Firmware, progress: &dyn Fn(u64)) -> Result<()> {
         if self.rom_bank != RomBank::Main && !self.dangerous_allow_write_non_main_bank {
-            return Err(Error::NonMainBankErase);
+            return Err(Error::NonMainBankWrite);
         }
 
         self.cmd_pre1()?;

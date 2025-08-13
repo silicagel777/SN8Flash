@@ -53,7 +53,7 @@ pub struct Flasher {
 
     #[getset(get_copy, vis = "pub")]
     #[getset(set, vis = "pub")]
-    connect_duration_us: u64,
+    connect_delay_us: u64,
 
     #[getset(get_copy, vis = "pub")]
     #[getset(set, vis = "pub")]
@@ -76,7 +76,7 @@ impl Flasher {
             final_reset: true,
             rom_bank: RomBank::Main,
             reset_duration_ms: 10,
-            connect_duration_us: 1666,
+            connect_delay_us: 1666,
             dangerous_allow_write_non_main_bank: false,
         }
     }
@@ -372,7 +372,7 @@ impl Flasher {
 
     pub fn connect(&mut self) -> Result<u32> {
         self.reset()?;
-        self.sleep_us(self.connect_duration_us);
+        self.sleep_us(self.connect_delay_us);
         self.cmd_connect()?;
         self.connected = true;
         self.chip_id()

@@ -55,9 +55,9 @@ struct Cli {
     #[arg(long, default_value_t = 10)]
     reset_duration: u64,
 
-    /// Custom connect duration in microseconds
+    /// Custom connect delay in microseconds
     #[arg(long, default_value_t = 1666)]
-    connect_duration: u64,
+    connect_delay: u64,
 
     /// Flash page size in bytes. It is usually 32 bytes, but
     /// can be 64 bytes for big chips. Check datasheet!
@@ -188,7 +188,7 @@ fn run(args: &Cli) -> anyhow::Result<()> {
     let mut flasher = Flasher::new(transport);
     flasher.set_final_reset(!args.no_final_reset);
     flasher.set_reset_duration_ms(args.reset_duration);
-    flasher.set_connect_duration_us(args.connect_duration);
+    flasher.set_connect_delay_us(args.connect_delay);
     flasher.set_rom_bank(args.rom_bank.into());
     flasher.set_dangerous_allow_write_non_main_bank(args.dangerous_allow_write_non_main_bank);
 

@@ -53,17 +53,17 @@ impl Firmware {
     }
 
     pub fn from_raw_bytes(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Result<Self> {
-        let sections = vec![Section {
+        let unaligned_sections = vec![Section {
             offset: base_offset,
             data: raw,
         }];
         if log::log_enabled!(log::Level::Debug) {
             log::debug!(
                 "Raw binary contains {} bytes",
-                Self::sections_len(&sections)
+                Self::sections_len(&unaligned_sections)
             );
         }
-        let sections = Self::align_and_merge_sections(sections, page_size);
+        let sections = Self::align_and_merge_sections(unaligned_sections, page_size);
         Ok(Self {
             len: Self::sections_len(&sections),
             page_size,
@@ -73,13 +73,13 @@ impl Firmware {
 
     pub fn from_intel_hex(raw: Vec<u8>, page_size: usize, base_offset: usize) -> Result<Self> {
         let mut hex_offset = 0;
-        let mut sections = Vec::new();
+        let mut unaligned_sections = Vec::new();
         let hex_str = std::str::from_utf8(&raw).map_err(Error::IHexDecodeError)?;
         for (i, record) in ihex::Reader::new(hex_str).enumerate() {
             match record {
                 Ok(ihex::Record::Data { offset, value }) => {
                     let full_offset = base_offset + hex_offset as usize + offset as usize;
-                    sections.push(Section {
+                    unaligned_sections.push(Section {
                         offset: full_offset,
                         data: value,
                     });
@@ -97,9 +97,12 @@ impl Firmware {
             }
         }
         if log::log_enabled!(log::Level::Debug) {
-            log::debug!("Intel HEX contains {} bytes", Self::sections_len(&sections));
+            log::debug!(
+                "Intel HEX contains {} bytes",
+                Self::sections_len(&unaligned_sections)
+            );
         }
-        let sections = Self::align_and_merge_sections(sections, page_size);
+        let sections = Self::align_and_merge_sections(unaligned_sections, page_size);
         Ok(Self {
             len: Self::sections_len(&sections),
             page_size,

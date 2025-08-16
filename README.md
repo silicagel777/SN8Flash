@@ -16,7 +16,7 @@ A command-line tool for flashing Sonix SN8F5xxx family of 8051-compatible microc
 
 ## Supported chips
 
-Currently tested with SN8F5702 series, but should work with many other chips in the family.
+Currently tested with SN8F5701,  SN8F5702 and SN8F5703 series, but should work with many other chips in the family.
 
 ## Required hardware
 
@@ -56,7 +56,7 @@ Alternatively, you can build SN8flash from source. Install a recent [Rust toolch
 - Run `sn8flash --port <PORT> read --size <FLASH_SIZE>` to read flash.
     - Add `--offset` to read with offset
     - Add `--file <FILE_NAME>` to dump to a file instead of pretty-printing. Set `<FILE_NAME>` to `-` to dump to stdout.
-    - Empty chips read as all `0xFF`s.
+    - Empty chips read as all `0xFF`s (or `0x00`s on SN8F5701)
     - Read-protected chips read as all `0x00`s, you'll have to erase them to unprotect.
     - You can use `--rom-bank boot` global parameter to read from hidden boot parameter area instead of main flash.
  

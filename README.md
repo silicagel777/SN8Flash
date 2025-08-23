@@ -20,7 +20,7 @@ Currently tested with SN8F5701,  SN8F5702 and SN8F5703 series, but should work w
 
 ## Required hardware
 
-SN8flash uses cheap USB-UART dongles. Unfortunately, SN8F5xxx microcontrollers would only accept connections for a few milliseconds after reset, so a dongle with an exposed RTS or DTR signal is required for a hardware reset circuit. You may also use reset-less mode for dongles without RTS/DTR signals and reset the chip manually, but this mode is not reliable: a proper reset circuit is the best option.
+SN8Flash uses cheap USB-UART dongles. Unfortunately, SN8F5xxx microcontrollers would only accept connections for a few milliseconds after reset, so a dongle with an exposed RTS or DTR signal is required for a hardware reset circuit. You may also use reset-less mode for dongles without RTS/DTR signals and reset the chip manually, but this mode is not reliable: a proper reset circuit is the best option.
 
 I recommend this [CH343-based adapter](https://aliexpress.com/item/1005004399796277.html) (see all [tested adapters](https://github.com/silicagel777/SN8Flash/wiki/Tested-adapters) in the wiki):
 
@@ -34,7 +34,7 @@ And here is the connection circuit:
 
 Grab a binary from the [Releases](https://github.com/silicagel777/sn8flash/releases) section and you are ready to go! You may also want to add it to your `PATH` environment variable.
 
-Alternatively, you can build SN8flash from source. Install a recent [Rust toolchain](https://www.rust-lang.org/tools/install), then run `cargo build --release`.
+Alternatively, you can build SN8Flash from source. Install a recent [Rust toolchain](https://www.rust-lang.org/tools/install), then run `cargo build --release`.
 
 ## Usage examples
 
@@ -54,7 +54,7 @@ Alternatively, you can build SN8flash from source. Install a recent [Rust toolch
   - `<PORT>` is something like `COM7` for Windows or something like `/dev/ttyACM0` for Linux.
   - Default reset pin is RTS, you can switch to DTR by using `--reset-type dtr` global parameter.
   - You can also invert reset pin by using `--reset-invert` global parameter.
-  - If your adapter does not have RTS/DTR outputs, use `--reset-less` global parameter to enable reset-less mode. sn8flash will wait for you to reset the chip manually. This mode is not very reliable and may take a few tries to work.
+  - If your adapter does not have RTS/DTR outputs, use `--reset-less` global parameter to enable reset-less mode. SN8Flash will wait for you to reset the chip manually. This mode is not very reliable and may take a few tries to work.
 
 ### Read flash
 - Run `sn8flash --port <PORT> read --size <FLASH_SIZE>` to read flash.
@@ -90,6 +90,6 @@ Alternatively, you can build SN8flash from source. Install a recent [Rust toolch
   - But there is also some fun undocumented stuff! For example, there are hidden registers deep at the end of XRAM that are used to switch flash pages.
 - There are at least two flash pages on these chips: main area and boot parameter area. The latter is interesting:
   - It is mostly undocumented, but some datasheets mention unique chip ID being stored there.
-  - It can be read, erased and written just like the main area. But if you erase it, the chip won't leave bootloader mode and will never proceed to the main program. Make backups! SN8flash won't allow erasing or writing it until you set a special flag.
+  - It can be read, erased and written just like the main area. But if you erase it, the chip won't leave bootloader mode and will never proceed to the main program. Make backups! SN8Flash won't allow erasing or writing it until you set a special flag.
   - Read protection does not affect boot parameter area.
   - The official "SN-Link ICP" software reads some values from the area, but I have no clue what it uses them for. It doesn't complain even if the area is completely wiped. Mystery everywhere!

@@ -291,12 +291,16 @@ impl Flasher {
     }
 
     fn cmd_check_write_finished(&mut self) -> Result<()> {
-        self.cmd_unk_48(0x81)?;
-        let res = self.cmd_get_u16()?;
-        if res != 0x015D {
-            return Err(Error::WriteCheckError(res));
+        let mut res = 0;
+        for _ in 0..10 {
+            self.cmd_unk_48(0x81)?;
+            res = self.cmd_get_u16()?;
+            if res == 0x015D {
+                return Ok(());
+            }
+            self.sleep_ms(5);
         }
-        Ok(())
+        Err(Error::WriteCheckError(res))
     }
 
     fn cmd_read(&mut self, offset: u16, data: &mut [u8], progress: &dyn Fn(u64)) -> Result<()> {

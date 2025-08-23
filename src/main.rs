@@ -94,11 +94,11 @@ enum Commands {
     /// Read flash
     Read {
         /// Read size in bytes
-        #[arg(short = 's', long)]
-        size: u16,
+        #[arg(short = 's', long, value_parser = number_parser::<u32>(1, 65536))]
+        size: u32,
 
         /// Read offset in bytes
-        #[arg(short = 'o', long, default_value_t = 0)]
+        #[arg(short = 'o', long, default_value_t = 0, value_parser = number_parser::<u16>(0, 65535))]
         offset: u16,
 
         /// Output file path (raw binary),
@@ -115,7 +115,7 @@ enum Commands {
         path: String,
 
         /// Verify offset in bytes
-        #[arg(short = 'o', long, default_value_t = 0)]
+        #[arg(short = 'o', long, default_value_t = 0, value_parser = number_parser::<u16>(0, 65535))]
         offset: u16,
     },
 
@@ -127,7 +127,7 @@ enum Commands {
         path: String,
 
         /// Write offset in bytes
-        #[arg(short = 'o', long, default_value_t = 0)]
+        #[arg(short = 'o', long, default_value_t = 0, value_parser = number_parser::<u16>(0, 65535))]
         offset: u16,
 
         /// Do not erase chip before writing
@@ -138,6 +138,42 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         no_verify: bool,
     },
+}
+
+fn number_parser<N>(min: N, max: N) -> impl Fn(&str) -> Result<N, String> + Clone
+where
+    N: TryFrom<u64> + PartialOrd + Copy + std::fmt::Display,
+{
+    move |value: &str| {
+        let parsed_str = value.replace('_', "").to_lowercase();
+
+        let (parsed_str, radix) = if let Some(hex_str) = parsed_str.strip_prefix("0x") {
+            (hex_str.into(), 16)
+        } else if let Some(bin_str) = parsed_str.strip_prefix("0b") {
+            (bin_str.into(), 2)
+        } else {
+            (parsed_str, 10)
+        };
+
+        let (parsed_str, factor) = if let Some(kb_str) = parsed_str.strip_suffix('k') {
+            (kb_str.into(), 1024)
+        } else {
+            (parsed_str, 1)
+        };
+
+        let parsed_num = u64::from_str_radix(&parsed_str, radix)
+            .map_err(|_| format!("invalid number: {value}"))?
+            * factor;
+
+        if let Ok(res) = N::try_from(parsed_num)
+            && res >= min
+            && res <= max
+        {
+            Ok(res)
+        } else {
+            Err(format!("{parsed_num} is not in {min}..={max}"))
+        }
+    }
 }
 
 fn load_firmware(path: &str, page_size: u8, offset: u16) -> anyhow::Result<Firmware> {

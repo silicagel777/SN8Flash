@@ -38,11 +38,15 @@ Alternatively, you can build SN8flash from source. Install a recent [Rust toolch
 
 ## Usage examples
 
-### Getting help
+### General
 
 - Run `sn8flash --help` to see all available commands and global parameters
 - Run `sn8flash <command> --help` to see parameters for chosen command
 - Global parameters go before command name (`--port` is a global parameter), command-specific parameters go after command name.
+- Numeric parameters accept additional formatting:
+  - hex (`0x`) and binary (`0b`) prefixes
+  - kilobyte (`k`) suffix
+  - digit separators (`_`)
 
 ### Chip ID / connection check
 

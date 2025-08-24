@@ -163,7 +163,7 @@ where
 
         let parsed_num = u64::from_str_radix(&parsed_str, radix)
             .map_err(|_| format!("invalid number: {value}"))?
-            * factor;
+            .saturating_mul(factor);
 
         if let Ok(res) = N::try_from(parsed_num)
             && res >= min

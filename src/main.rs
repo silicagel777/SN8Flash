@@ -61,7 +61,7 @@ struct Cli {
 
     /// Flash page size in bytes. It is usually 32 bytes, but
     /// can be 64 bytes for big chips. Check datasheet!
-    #[arg(short = 'x', long, default_value_t = 0x20)]
+    #[arg(short = 'x', long, default_value_t = 32, value_parser = number_parser::<u8>(1, 128))]
     page_size: u8,
 
     /// ROM bank to work with

@@ -57,7 +57,8 @@ Alternatively, you can build SN8Flash from source. Install a recent [Rust toolch
   - If your adapter does not have RTS/DTR outputs, use `--reset-less` global parameter to enable reset-less mode. SN8Flash will wait for you to reset the chip manually. This mode is not very reliable and may take a few tries to work.
 
 ### Read flash
-- Run `sn8flash --port <PORT> read --size <FLASH_SIZE>` to read flash.
+- Run `sn8flash --port <PORT> read` to read flash.
+    - Add `--size` to specify read size
     - Add `--offset` to read with offset
     - Add `--file <FILE_NAME>` to dump to a file instead of pretty-printing. Set `<FILE_NAME>` to `-` to dump to stdout.
     - Empty chips read as all `0xFF`s (or `0x00`s on SN8F5701)
@@ -73,7 +74,6 @@ Alternatively, you can build SN8Flash from source. Install a recent [Rust toolch
 - Run `sn8flash --port <PORT> write --file <FILE_NAME>` to flash new firmware
     - Supported firmware formats are raw binary and Intel HEX (`*.hex`, `*.ihex`, `*.ihx`).
     - `write` also implies `erase` and `verify` by default. Use `--no-erase` or `--no-verify` to skip these steps.
-    - You may have to set `--page-size <SIZE>` global parameter for firmware to be written correctly. The default page size is 32 bytes: this is the right value for most chips in the SN8F5xxx family, but some big ones use 64-byte pages. Check datasheet!
 
 ### Verify
 

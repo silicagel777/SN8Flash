@@ -1,6 +1,7 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
+use sn8flash::chip::ChipInfo;
 use sn8flash::firmware::Firmware;
 use sn8flash::flasher::{Flasher, RomBank};
 use sn8flash::transport::{ResetType, SerialPortTransport};
@@ -8,14 +9,14 @@ use std::io::{Read, Write};
 use std::process::ExitCode;
 use structural_convert::StructuralConvert;
 
-#[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum)]
+#[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum, PartialEq)]
 #[convert(into(ResetType))]
 enum ArgResetType {
     Rts,
     Dtr,
 }
 
-#[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum)]
+#[derive(Clone, Copy, Debug, StructuralConvert, ValueEnum, PartialEq)]
 #[convert(into(RomBank))]
 enum ArgRomBank {
     /// Main flash memory
@@ -59,10 +60,9 @@ struct Cli {
     #[arg(long, default_value_t = 1666)]
     connect_delay: u64,
 
-    /// Flash page size in bytes. It is usually 32 bytes, but
-    /// can be 64 bytes for big chips. Check datasheet!
-    #[arg(short = 'x', long, default_value_t = 32, value_parser = number_parser::<u8>(1, 128))]
-    page_size: u8,
+    /// Flash page size in bytes. Required for unknown chips. Check datasheet!
+    #[arg(short = 'x', long, value_parser = number_parser::<u8>(1, 128))]
+    page_size: Option<u8>,
 
     /// ROM bank to work with
     #[arg(long, default_value = "main")]
@@ -93,9 +93,9 @@ enum Commands {
 
     /// Read flash
     Read {
-        /// Read size in bytes
+        /// Read size in bytes, omit for full flash read
         #[arg(short = 's', long, value_parser = number_parser::<u32>(1, 65536))]
-        size: u32,
+        size: Option<u32>,
 
         /// Read offset in bytes
         #[arg(short = 'o', long, default_value_t = 0, value_parser = number_parser::<u16>(0, 65535))]
@@ -238,7 +238,19 @@ fn run(args: &Cli) -> anyhow::Result<()> {
     } else {
         flasher.connect()?
     };
-    log::info!("Chip ID is {chip_id:#X}");
+
+    let chip_info = ChipInfo::from_chip_id(chip_id);
+    log::info!(
+        "Chip ID is {:#X} ({})",
+        chip_id,
+        chip_info.map_or("unknown chip".to_string(), |x| x.to_string())
+    );
+
+    let page_size_fn = || {
+        args.page_size
+            .or_else(|| chip_info.map(|x| x.page_size()))
+            .context("Unknown chip: must provide page size")
+    };
 
     match args.command {
         Commands::ChipId => {
@@ -253,6 +265,13 @@ fn run(args: &Cli) -> anyhow::Result<()> {
             offset,
             size,
         } => {
+            let size = if args.rom_bank != ArgRomBank::Main {
+                size.context("Non-default ROM bank: must provide read size")?
+            } else {
+                size.or_else(|| chip_info.map(|x| x.flash_size()))
+                    .context("Unknown chip: must provide read size")?
+            };
+
             log::info!("Reading {size} bytes of flash...");
             let mut data_read = vec![0; size as usize];
             let bar = ProgressBar::new(data_read.len() as _);
@@ -262,7 +281,7 @@ fn run(args: &Cli) -> anyhow::Result<()> {
             dump_firmware(path.as_deref(), &data_read, offset)?;
         }
         Commands::Verify { ref path, offset } => {
-            let firmware = load_firmware(path, args.page_size, offset)?;
+            let firmware = load_firmware(path, page_size_fn()?, offset)?;
 
             log::info!(
                 "Verifying {} bytes of flash ({} pages)...",
@@ -279,7 +298,7 @@ fn run(args: &Cli) -> anyhow::Result<()> {
             no_erase,
             no_verify,
         } => {
-            let firmware = load_firmware(path, args.page_size, offset)?;
+            let firmware = load_firmware(path, page_size_fn()?, offset)?;
 
             if !no_erase {
                 log::info!("Erasing flash...");

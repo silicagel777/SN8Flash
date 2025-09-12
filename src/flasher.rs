@@ -142,9 +142,14 @@ impl Flasher {
             0x9D, 0x49, 0x2C, 0x80, 0x7E, 0x6B, 0x8F, 0xD3, 0x92,
         ])?;
         let mut res = [0; 4];
-        self.read(&mut res)?;
+        match self.read(&mut res) {
+            Err(Error::IOError(err)) if err.kind() == std::io::ErrorKind::TimedOut => {
+                Err(Error::HandshakeResponseTimeout)
+            }
+            res => res,
+        }?;
         if res != [0xFF; 4] {
-            return Err(Error::HandshakeError(res));
+            return Err(Error::HandshakeResponseMismatch(res));
         }
         Ok(())
     }
@@ -387,7 +392,8 @@ impl Flasher {
             loop {
                 match this.cmd_connect() {
                     Ok(_) => break Ok(()),
-                    Err(Error::HandshakeError(_)) => {}
+                    Err(Error::HandshakeResponseTimeout) => {}
+                    Err(Error::HandshakeResponseMismatch(_)) => {}
                     Err(Error::WriteReadMismatch) => {}
                     Err(Error::WriteReadFailed(err))
                         if err.kind() == std::io::ErrorKind::TimedOut => {}

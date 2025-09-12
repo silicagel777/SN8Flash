@@ -11,8 +11,11 @@ pub enum Error {
     #[error("Write/read data mismatch, check RX+TX connection")]
     WriteReadMismatch,
 
+    #[error("No handshake response, check chip connection")]
+    HandshakeResponseTimeout,
+
     #[error("Invalid handshake response {0:X?}")]
-    HandshakeError([u8; 4]),
+    HandshakeResponseMismatch([u8; 4]),
 
     #[error("Invalid write check result {0:X}")]
     WriteCheckError(u16),

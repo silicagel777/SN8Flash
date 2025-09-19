@@ -16,7 +16,7 @@ A command-line tool for flashing Sonix SN8F5xxx family of 8051-compatible microc
 
 ## Supported chips
 
-Currently tested with SN8F5701,  SN8F5702 and SN8F5703 series, but should work with many other chips in the family.
+Currently tested with SN8F5701, SN8F5702, SN8F5703 and SN8F5829 series, but should work with many other chips in the family.
 
 ## Required hardware
 

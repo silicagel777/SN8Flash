@@ -356,14 +356,14 @@ impl Flasher {
         Ok(())
     }
 
-    fn cmd_write_page(&mut self, page: usize, data: &[u8]) -> Result<()> {
+    fn cmd_write_page(&mut self, offset: usize, data: &[u8]) -> Result<()> {
         self.write_batch(&|this| {
             for (i, byte) in data.iter().enumerate() {
                 this.cmd_write_ram(i as u8, *byte)?;
             }
             this.cmd_write_sfr(Sfr::Peram, 0x00)?;
-            this.cmd_write_sfr(Sfr::Peromh, (page / 8) as u8)?;
-            this.cmd_write_sfr(Sfr::Peroml, ((page % 8) as u8) << 5 | 0x0A)?;
+            this.cmd_write_sfr(Sfr::Peromh, (offset >> 8) as u8)?;
+            this.cmd_write_sfr(Sfr::Peroml, (offset as u8) | 0x0A)?;
             this.cmd_write_sfr(Sfr::Pecmd, 0x5A)?;
             Ok(())
         })
@@ -488,8 +488,14 @@ impl Flasher {
         for section in firmware.sections() {
             for (i, data) in section.data().chunks(firmware.page_size()).enumerate() {
                 let page = section.offset() / firmware.page_size() + i;
-                log::debug!("Writing page {}, size {}", page, firmware.page_size());
-                self.cmd_write_page(page, data)?;
+                let offset = page * firmware.page_size();
+                log::debug!(
+                    "Writing page {} (offset {}, size {})",
+                    page,
+                    offset,
+                    firmware.page_size()
+                );
+                self.cmd_write_page(offset, data)?;
                 self.sleep_ms(5);
 
                 self.cmd_check_write_finished()?;

@@ -30,6 +30,13 @@ And here is the connection circuit:
 
 <p><img alt="Connection circuit" src="docs/sn8flash-connection.png"></p>
 
+If you prefer dedicated hardware, check out [sonixflasher project by 
+ebastler](https://github.com/ebastler/sonixflasher). It is a CH343-based adapter with the connection circuit built-in:
+
+<p><img alt="sonixflasher by ebastler" src="docs/sonixflasher-by-ebastler.png" width=70% height=70%></p>
+
+
+
 ## Installation
 
 Grab a binary from the [Releases](https://github.com/silicagel777/sn8flash/releases) section and you are ready to go! You may also want to add it to your `PATH` environment variable.

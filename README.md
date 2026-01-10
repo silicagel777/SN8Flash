@@ -39,7 +39,7 @@ ebastler](https://github.com/ebastler/sonixflasher). It is a CH343-based adapter
 
 ## Installation
 
-Grab a binary from the [Releases](https://github.com/silicagel777/sn8flash/releases) section and you are ready to go! You may also want to add it to your `PATH` environment variable.
+Grab a binary from the [Releases](https://github.com/silicagel777/sn8flash/releases) section and you are ready to go! You may also want to add its directory to your `PATH` environment variable.
 
 Alternatively, you can build SN8Flash from source. Install a recent [Rust toolchain](https://www.rust-lang.org/tools/install), then run `cargo build --release`.
 

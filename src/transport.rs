@@ -56,6 +56,7 @@ impl SerialPortTransport {
 impl Transport for SerialPortTransport {
     fn write(&mut self, data: &[u8]) -> Result<()> {
         log::trace!("Writing {data:02X?}");
+        self.port.discard_buffers()?;
         self.port.write_all(data)?;
         self.port.flush()?;
         let mut res = [0];

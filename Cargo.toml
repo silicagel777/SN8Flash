@@ -1,21 +1,21 @@
 [package]
 name = "sn8flash"
-version = "1.0.5"
+version = "1.0.6"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.98"
-clap = { version = "4.5.41", features = ["derive"] }
-clap-verbosity-flag = "3.0.3"
+anyhow = "1.0.100"
+clap = { version = "4.5.54", features = ["derive"] }
+clap-verbosity-flag = "3.0.4"
 gset = "1.1.0"
 ihex = "3.0.0"
-indicatif = "0.18.0"
-log = "0.4.27"
-nu-pretty-hex = "0.106.1"
-serial2 = "0.2.31"
+indicatif = "0.18.3"
+log = "0.4.29"
+nu-pretty-hex = "0.110.0"
+serial2 = "0.2.33"
 simplelog = "0.12.2"
 structural-convert = "0.13.0"
-thiserror = "2.0.12"
+thiserror = "2.0.18"
 
 [profile.release]
 lto = true

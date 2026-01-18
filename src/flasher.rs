@@ -67,6 +67,9 @@ pub struct Flasher {
 impl Flasher {
     // Common stuff ===========================================================
 
+    pub const DEFAULT_RESET_DURATION_MS: u64 = 100;
+    pub const DEFAULT_CONNECT_DELAY_US: u64 = 1500;
+
     pub fn new(transport: Box<dyn Transport>) -> Self {
         Self {
             transport,
@@ -75,8 +78,8 @@ impl Flasher {
             batch_data: Vec::new(),
             final_reset: true,
             rom_bank: RomBank::Main,
-            reset_duration_ms: 10,
-            connect_delay_us: 1666,
+            reset_duration_ms: Self::DEFAULT_RESET_DURATION_MS,
+            connect_delay_us: Self::DEFAULT_CONNECT_DELAY_US,
             dangerous_allow_write_non_main_bank: false,
         }
     }

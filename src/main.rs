@@ -53,11 +53,11 @@ struct Cli {
     reset_invert: bool,
 
     /// Custom reset duration in milliseconds
-    #[arg(long, default_value_t = 10)]
+    #[arg(long, default_value_t = Flasher::DEFAULT_RESET_DURATION_MS)]
     reset_duration: u64,
 
     /// Custom connect delay in microseconds
-    #[arg(long, default_value_t = 1666)]
+    #[arg(long, default_value_t = Flasher::DEFAULT_CONNECT_DELAY_US)]
     connect_delay: u64,
 
     /// Flash page size in bytes. Required for unknown chips. Check datasheet!

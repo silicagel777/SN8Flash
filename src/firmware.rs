@@ -39,8 +39,9 @@ impl Firmware {
         let extension = Path::new(path)
             .extension()
             .and_then(OsStr::to_str)
-            .unwrap_or_default();
-        match extension {
+            .unwrap_or_default()
+            .to_lowercase();
+        match extension.as_str() {
             "hex" | "ihex" | "ihx" => {
                 log::info!("Loading {path} as Intel HEX");
                 Self::from_intel_hex(data, page_size, base_offset)

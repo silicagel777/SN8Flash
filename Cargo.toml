@@ -1,18 +1,27 @@
 [package]
 name = "sn8flash"
-version = "1.0.6"
+version = "1.0.7"
 edition = "2024"
+description = "A flash tool for Sonix SN8F5xxx family of 8051-compatible microcontrollers (SN8F5701, SN8F5702, SN8F5703, SN8F5829 and others)"
+authors = ["Silica Gel <silicagel777@proton.me>"]
+repository = "https://github.com/silicagel777/SN8Flash"
+documentation = "https://github.com/silicagel777/SN8Flash"
+homepage = "https://github.com/silicagel777/SN8Flash"
+categories = ["embedded", "hardware-support", "development-tools::debugging"]
+keywords = ["embedded", "Sonix", "SN8F", "SN8"]
+readme = "README.md"
+license = "MIT"
 
 [dependencies]
-anyhow = "1.0.100"
-clap = { version = "4.5.54", features = ["derive"] }
+anyhow = "1.0.102"
+clap = { version = "4.6.1", features = ["derive"] }
 clap-verbosity-flag = "3.0.4"
 gset = "1.1.0"
 ihex = "3.0.0"
-indicatif = "0.18.3"
-log = "0.4.29"
-nu-pretty-hex = "0.110.0"
-serial2 = "0.2.33"
+indicatif = "0.18.4"
+log = "0.4.32"
+nu-pretty-hex = "0.113.1"
+serial2 = "0.2.37"
 simplelog = "0.12.2"
 structural-convert = "0.13.0"
 thiserror = "2.0.18"

@@ -1,0 +1,23 @@
+[package]
+name = "sn8flash-gui"
+description = "A flash tool GUI for Sonix SN8F5xxx family of 8051-compatible microcontrollers (SN8F5701, SN8F5702, SN8F5703, SN8F5829 and others)"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+anyhow = "1.0.104"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+log = { version = "0.4.34", features = ["std"] }
+sn8flash-lib = { path = "../sn8flash-lib" }
+wxdragon = { version = "0.9.19", features = ["xrc"] }
+
+[build-dependencies]
+embed-resource = "3.0.11"

@@ -1,0 +1,24 @@
+[package]
+name = "sn8flash"
+description = "A flash tool CLI for Sonix SN8F5xxx family of 8051-compatible microcontrollers (SN8F5701, SN8F5702, SN8F5703, SN8F5829 and others)"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.6", features = ["derive"] }
+clap-verbosity-flag = "3.0.4"
+indicatif = "0.18.6"
+log = "0.4.34"
+nu-pretty-hex = "0.115.1"
+simplelog = "0.12.2"
+structural-convert = "0.13.0"
+sn8flash-lib = { path = "../sn8flash-lib" }

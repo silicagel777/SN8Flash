@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.5.3.0">
+  <object class="wxDialog" name="connection_circuit_dialog">
+    <size>400,300</size>
+    <style>wxDEFAULT_DIALOG_STYLE</style>
+    <title>Connection circuit</title>
+    <centered>1</centered>
+    <object class="wxBoxSizer" name="bSizer1">
+      <orient>wxVERTICAL</orient>
+      <object class="sizeritem">
+        <flag>wxEXPAND | wxALL</flag>
+        <border>5</border>
+        <option>1</option>
+        <object class="wxPanel" name="m_panel1">
+          <style>wxTAB_TRAVERSAL</style>
+          <object class="wxBoxSizer" name="bSizer2">
+            <orient>wxVERTICAL</orient>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxStaticBitmap" name="circuit_bitmap">
+                <bitmap></bitmap>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxBoxSizer" name="bSizer4">
+                <orient>wxHORIZONTAL</orient>
+                <object class="sizeritem">
+                  <flag>wxALL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText1">
+                    <label>See full documentation at:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxHyperlinkCtrl" name="doc_link">
+                    <style>wxHL_DEFAULT_STYLE</style>
+                    <label>example.com</label>
+                    <url>https://example.com</url>
+                  </object>
+                </object>
+                <object class="spacer">
+                  <flag>wxEXPAND</flag>
+                  <border>5</border>
+                  <option>1</option>
+                  <size>0,0</size>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStdDialogButtonSizer" name="dialog_buttons">
+                    <object class="button">
+                      <object class="wxButton" name="wxID_OK"/>
+                    </object>
+                  </object>
+                </object>
+              </object>
+            </object>
+          </object>
+        </object>
+      </object>
+    </object>
+  </object>
+</resource>

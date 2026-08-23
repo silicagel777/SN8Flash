@@ -1,0 +1,20 @@
+[package]
+name = "sn8flash-lib"
+description = "A flash tool library for Sonix SN8F5xxx family of 8051-compatible microcontrollers (SN8F5701, SN8F5702, SN8F5703, SN8F5829 and others)"
+version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+categories = { workspace = true }
+keywords = { workspace = true }
+readme = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+gset = "1.1.0"
+ihex = "3.0.0"
+log = "0.4.34"
+serial2 = "0.2.38"
+thiserror = "2.0.20"

@@ -1,0 +1,641 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.5.3.0">
+  <object class="wxFrame" name="main_frame">
+    <size>600,600</size>
+    <style>wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL</style>
+    <title>SN8Flash GUI</title>
+    <centered>1</centered>
+    <aui_managed>0</aui_managed>
+    <object class="wxPanel" name="m_panel1">
+      <style>wxTAB_TRAVERSAL</style>
+      <object class="wxBoxSizer" name="bSizer2">
+        <orient>wxVERTICAL</orient>
+        <object class="sizeritem">
+          <flag>wxALL|wxEXPAND</flag>
+          <border>5</border>
+          <option>0</option>
+          <object class="wxStaticBoxSizer" name="sbSizer1">
+            <orient>wxHORIZONTAL</orient>
+            <label>Programmer:</label>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer1">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols>1</growablecols>
+                <rows>0</rows>
+                <cols>2</cols>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText1">
+                    <label>Serial port:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxComboBox" name="serial_port">
+                    <value>COM1</value>
+                    <content>
+                      <item>COM1</item>
+                      <item>COM2</item>
+                    </content>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText3">
+                    <label>Reset type:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxChoice" name="reset_type">
+                    <selection>0</selection>
+                    <content>
+                      <item>RTS</item>
+                      <item>DTR</item>
+                      <item>Reset-less</item>
+                    </content>
+                  </object>
+                </object>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer3">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols>1</growablecols>
+                <rows>0</rows>
+                <cols>2</cols>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText7">
+                    <label>Reset duration (ms):</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxSpinCtrl" name="reset_duration">
+                    <style>wxSP_ARROW_KEYS</style>
+                    <value>0</value>
+                    <min>0</min>
+                    <max>100000</max>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText5">
+                    <label>Connect delay (us):</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxSpinCtrl" name="connect_delay">
+                    <style>wxSP_ARROW_KEYS</style>
+                    <value>0</value>
+                    <min>0</min>
+                    <max>100000</max>
+                  </object>
+                </object>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer5">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols></growablecols>
+                <rows>0</rows>
+                <cols>1</cols>
+                <object class="sizeritem">
+                  <flag>wxALL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxCheckBox" name="no_final_reset">
+                    <label>No final reset</label>
+                    <checked>0</checked>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxCheckBox" name="invert_reset">
+                    <label>Invert reset</label>
+                    <checked>0</checked>
+                  </object>
+                </object>
+              </object>
+            </object>
+          </object>
+        </object>
+        <object class="sizeritem">
+          <flag>wxALL|wxEXPAND</flag>
+          <border>5</border>
+          <option>0</option>
+          <object class="wxStaticBoxSizer" name="sbSizer2">
+            <orient>wxHORIZONTAL</orient>
+            <label>Common options:</label>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer2">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols>1</growablecols>
+                <rows>0</rows>
+                <cols>2</cols>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText4">
+                    <label>ROM bank:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxChoice" name="rom_bank">
+                    <selection>0</selection>
+                    <content>
+                      <item>Main</item>
+                      <item>Boot</item>
+                    </content>
+                  </object>
+                </object>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer21">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols>1</growablecols>
+                <rows>0</rows>
+                <cols>2</cols>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText11">
+                    <label>Page size:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxChoice" name="page_size">
+                    <selection>0</selection>
+                    <content>
+                      <item>Auto</item>
+                      <item>32</item>
+                      <item>64</item>
+                    </content>
+                  </object>
+                </object>
+              </object>
+            </object>
+          </object>
+        </object>
+        <object class="sizeritem">
+          <flag>wxALL|wxEXPAND</flag>
+          <border>5</border>
+          <option>0</option>
+          <object class="wxStaticBoxSizer" name="sbSizer3">
+            <orient>wxVERTICAL</orient>
+            <label>Read options:</label>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer22">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols>1</growablecols>
+                <rows>0</rows>
+                <cols>3</cols>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText41">
+                    <label>File:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxTextCtrl" name="read_file_input">
+                    <value></value>
+                    <maxlength>0</maxlength>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxButton" name="read_file_choose">
+                    <label>...</label>
+                    <default>0</default>
+                    <auth_needed>0</auth_needed>
+                    <markup>0</markup>
+                    <bitmap/>
+                  </object>
+                </object>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxBoxSizer" name="bSizer4">
+                <orient>wxHORIZONTAL</orient>
+                <object class="sizeritem">
+                  <flag>wxEXPAND</flag>
+                  <border>5</border>
+                  <option>1</option>
+                  <object class="wxFlexGridSizer" name="fgSizer211">
+                    <vgap>0</vgap>
+                    <hgap>0</hgap>
+                    <growablerows></growablerows>
+                    <growablecols>1</growablecols>
+                    <rows>0</rows>
+                    <cols>2</cols>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxCheckBox" name="read_offset_enable">
+                        <label>Offset:</label>
+                        <checked>0</checked>
+                      </object>
+                    </object>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxEXPAND</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxSpinCtrl" name="read_offset_input">
+                        <style>wxSP_ARROW_KEYS</style>
+                        <enabled>0</enabled>
+                        <value>0</value>
+                        <min>0</min>
+                        <max>65535</max>
+                      </object>
+                    </object>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxEXPAND</flag>
+                  <border>5</border>
+                  <option>1</option>
+                  <object class="wxFlexGridSizer" name="fgSizer2111">
+                    <vgap>0</vgap>
+                    <hgap>0</hgap>
+                    <growablerows></growablerows>
+                    <growablecols>1</growablecols>
+                    <rows>0</rows>
+                    <cols>2</cols>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxCheckBox" name="read_size_enable">
+                        <label>Size:</label>
+                        <checked>0</checked>
+                      </object>
+                    </object>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxEXPAND</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxSpinCtrl" name="read_size_input">
+                        <style>wxSP_ARROW_KEYS</style>
+                        <enabled>0</enabled>
+                        <value>4096</value>
+                        <min>1</min>
+                        <max>65536</max>
+                      </object>
+                    </object>
+                  </object>
+                </object>
+              </object>
+            </object>
+          </object>
+        </object>
+        <object class="sizeritem">
+          <flag>wxALL|wxEXPAND</flag>
+          <border>5</border>
+          <option>0</option>
+          <object class="wxStaticBoxSizer" name="sbSizer4">
+            <orient>wxVERTICAL</orient>
+            <label>Write options:</label>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxFlexGridSizer" name="fgSizer221">
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablerows></growablerows>
+                <growablecols>1</growablecols>
+                <rows>0</rows>
+                <cols>3</cols>
+                <object class="sizeritem">
+                  <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxStaticText" name="m_staticText411">
+                    <label>File:</label>
+                    <wrap>-1</wrap>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL|wxEXPAND</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxTextCtrl" name="write_file_input">
+                    <value></value>
+                    <maxlength>0</maxlength>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxALL</flag>
+                  <border>5</border>
+                  <option>0</option>
+                  <object class="wxButton" name="write_file_choose">
+                    <label>...</label>
+                    <default>0</default>
+                    <auth_needed>0</auth_needed>
+                    <markup>0</markup>
+                    <bitmap/>
+                  </object>
+                </object>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <object class="wxBoxSizer" name="bSizer41">
+                <orient>wxHORIZONTAL</orient>
+                <object class="sizeritem">
+                  <flag>wxEXPAND</flag>
+                  <border>5</border>
+                  <option>1</option>
+                  <object class="wxFlexGridSizer" name="fgSizer2112">
+                    <vgap>0</vgap>
+                    <hgap>0</hgap>
+                    <growablerows></growablerows>
+                    <growablecols>1</growablecols>
+                    <rows>0</rows>
+                    <cols>2</cols>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxCheckBox" name="write_offset_enable">
+                        <label>Offset:</label>
+                        <checked>0</checked>
+                      </object>
+                    </object>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxEXPAND</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxSpinCtrl" name="write_offset_input">
+                        <style>wxSP_ARROW_KEYS</style>
+                        <enabled>0</enabled>
+                        <value>0</value>
+                        <min>0</min>
+                        <max>65535</max>
+                      </object>
+                    </object>
+                  </object>
+                </object>
+                <object class="sizeritem">
+                  <flag>wxEXPAND</flag>
+                  <border>5</border>
+                  <option>1</option>
+                  <object class="wxBoxSizer" name="bSizer7">
+                    <orient>wxHORIZONTAL</orient>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxCheckBox" name="write_skip_erase">
+                        <label>Skip erase</label>
+                        <checked>0</checked>
+                      </object>
+                    </object>
+                    <object class="sizeritem">
+                      <flag>wxALL|wxALIGN_CENTER_VERTICAL</flag>
+                      <border>5</border>
+                      <option>0</option>
+                      <object class="wxCheckBox" name="write_skip_verify">
+                        <label>Skip verify</label>
+                        <checked>0</checked>
+                      </object>
+                    </object>
+                  </object>
+                </object>
+              </object>
+            </object>
+          </object>
+        </object>
+        <object class="sizeritem">
+          <flag>wxEXPAND</flag>
+          <border>5</border>
+          <option>0</option>
+          <object class="wxBoxSizer" name="bSizer3">
+            <orient>wxHORIZONTAL</orient>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxButton" name="run_chip_id_button">
+                <size>-1,45</size>
+                <label>Chip ID</label>
+                <default>0</default>
+                <auth_needed>0</auth_needed>
+                <markup>0</markup>
+                <bitmap/>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxButton" name="run_read_button">
+                <size>-1,45</size>
+                <label>Read</label>
+                <default>0</default>
+                <auth_needed>0</auth_needed>
+                <markup>0</markup>
+                <bitmap/>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxButton" name="run_erase_button">
+                <size>-1,45</size>
+                <label>Erase</label>
+                <default>0</default>
+                <auth_needed>0</auth_needed>
+                <markup>0</markup>
+                <bitmap/>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxButton" name="run_write_button">
+                <size>-1,45</size>
+                <label>Write</label>
+                <default>0</default>
+                <auth_needed>0</auth_needed>
+                <markup>0</markup>
+                <bitmap/>
+              </object>
+            </object>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxButton" name="run_verify_button">
+                <size>-1,45</size>
+                <label>Verify</label>
+                <default>0</default>
+                <auth_needed>0</auth_needed>
+                <markup>0</markup>
+                <bitmap/>
+              </object>
+            </object>
+            <object class="spacer">
+              <flag>wxEXPAND</flag>
+              <border>5</border>
+              <option>1</option>
+              <size>0,0</size>
+            </object>
+            <object class="sizeritem">
+              <flag>wxALL</flag>
+              <border>5</border>
+              <option>0</option>
+              <object class="wxButton" name="run_stop_button">
+                <size>-1,45</size>
+                <enabled>0</enabled>
+                <label>Stop</label>
+                <default>0</default>
+                <auth_needed>0</auth_needed>
+                <markup>0</markup>
+                <bitmap/>
+              </object>
+            </object>
+          </object>
+        </object>
+        <object class="sizeritem">
+          <flag>wxALL|wxEXPAND</flag>
+          <border>5</border>
+          <option>1</option>
+          <object class="wxTextCtrl" name="log_edit">
+            <style>wxTE_MULTILINE|wxTE_READONLY</style>
+            <value></value>
+            <maxlength>0</maxlength>
+          </object>
+        </object>
+        <object class="sizeritem">
+          <flag>wxALL|wxEXPAND</flag>
+          <border>5</border>
+          <option>0</option>
+          <object class="wxGauge" name="log_progress">
+            <style>wxGA_HORIZONTAL</style>
+            <range>100</range>
+            <value>0</value>
+          </object>
+        </object>
+      </object>
+    </object>
+    <object class="wxMenuBar" name="main_menubar">
+      <object class="wxMenu" name="item_file">
+        <label>_File</label>
+        <object class="wxMenuItem" name="item_refresh_ports">
+          <label>_Refresh ports</label>
+          <accel></accel>
+          <help></help>
+          <bitmap></bitmap>
+        </object>
+        <object class="wxMenuItem" name="item_exit">
+          <label>E_xit</label>
+          <accel>ALT+F4</accel>
+          <help></help>
+        </object>
+      </object>
+      <object class="wxMenu" name="item_view">
+        <label>_View</label>
+        <object class="wxMenuItem" name="item_clear_log">
+          <label>_Clear log</label>
+          <accel></accel>
+          <help></help>
+        </object>
+      </object>
+      <object class="wxMenu" name="item_help">
+        <label>_Help</label>
+        <object class="wxMenuItem" name="item_connection_circuit">
+          <label>_Connection circuit</label>
+          <accel></accel>
+          <help></help>
+        </object>
+        <object class="wxMenuItem" name="item_about">
+          <label>_About</label>
+          <accel>F1</accel>
+          <help></help>
+        </object>
+      </object>
+    </object>
+  </object>
+</resource>

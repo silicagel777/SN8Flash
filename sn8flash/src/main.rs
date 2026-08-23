@@ -1,10 +1,10 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
 use indicatif::ProgressBar;
-use sn8flash::chip::ChipInfo;
-use sn8flash::firmware::Firmware;
-use sn8flash::flasher::{Flasher, RomBank};
-use sn8flash::transport::{ResetType, SerialPortTransport};
+use sn8flash_lib::chip::ChipInfo;
+use sn8flash_lib::firmware::Firmware;
+use sn8flash_lib::flasher::{Flasher, RomBank};
+use sn8flash_lib::transport::{ResetType, SerialPortTransport};
 use std::io::{Read, Write};
 use std::process::ExitCode;
 use structural_convert::StructuralConvert;

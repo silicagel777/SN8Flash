@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 pub trait Transport {
     fn write(&mut self, data: &[u8]) -> Result<()>;
@@ -50,6 +50,10 @@ impl SerialPortTransport {
             reset_type: ResetType::Rts,
             reset_invert: false,
         })
+    }
+
+    pub fn available_ports() -> Result<Vec<PathBuf>> {
+        Ok(serial2::SerialPort::available_ports()?)
     }
 }
 
